@@ -65,6 +65,7 @@ type ServerConfig struct {
 	PlayURL    string         `json:"playurl"`
 	DrmCfgFile string         `json:"drmcfgfile"`
 	DrmCfg     *drm.DrmConfig `json:"drmcfg"`
+	LowDelay   bool           `json:"lowdelay"`
 }
 
 var DefaultConfig = ServerConfig{
@@ -131,6 +132,7 @@ func LoadConfig(args []string, cwd string) (*ServerConfig, error) {
 	f.String("host", k.String("host"), "host (and possible prefix) used in MPD elements. Overrides auto-detected full scheme://host")
 	f.String("playurl", k.String("playurl"), "URL template to play mpd. %s will be replaced by MPD URL")
 	f.String("drmcfgfile", k.String("drmcfgfile"), "DRM config file path")
+	f.Bool("lowdelay", k.Bool("lowdelay"), "Enable Low Delay Mode")
 
 	if err := f.Parse(args[1:]); err != nil {
 		return nil, fmt.Errorf("command line parse: %w", err)
