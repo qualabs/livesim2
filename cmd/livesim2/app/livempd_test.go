@@ -359,7 +359,7 @@ func TestLastAvailableSegment(t *testing.T) {
 				} else {
 					require.NoError(t, err)
 					r := as.Representations[0] // Assume that any representation will be fine inside AS
-					se := asset.generateTimelineEntries(r.Id, wTimes, atoMS)
+					se := asset.generateTimelineEntries(r.Id, wTimes, atoMS, nil)
 					assert.Equal(t, tc.wantedSegNr, se.lsi.nr)
 				}
 			}

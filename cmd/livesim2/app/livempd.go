@@ -268,12 +268,12 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		var se segEntries
 		if asIdx == 0 {
 			// Assume that first representation is as good as any, so can be reference
-			refSegEntries = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS)
+			refSegEntries = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, cfg.ChunkDurS)
 			se = refSegEntries
 		} else {
 			switch as.ContentType {
 			case "video", "text", "image":
-				se = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS)
+				se = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, cfg.ChunkDurS)
 			case "audio":
 				se = a.generateTimelineEntriesFromRef(refSegEntries, as.Representations[0].Id)
 			default:
