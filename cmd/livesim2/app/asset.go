@@ -448,16 +448,17 @@ func (l lastSegInfo) availabilityTime(ato float64) float64 {
 }
 
 func calculateK(segmentDuration uint64, mediaTimescale int, chunkDuration *float64) *uint64 {
-	if chunkDuration != nil && *chunkDuration > 0 {
-		chunkDurInTimescale := float64(*chunkDuration) * float64(mediaTimescale)
-		if chunkDurInTimescale > 0 {
-			kVal := uint64(math.Round(float64(segmentDuration) / float64(chunkDurInTimescale)))
-			if kVal > 1 {
-				return &kVal
-			}
-		}
+	if chunkDuration == nil || *chunkDuration <= 0 {
+		return nil
 	}
-
+	chunkDurInTimescale := *chunkDuration * float64(mediaTimescale)
+	if chunkDurInTimescale <= 0 {
+		return nil
+	}
+	kVal := uint64(math.Round(float64(segmentDuration) / chunkDurInTimescale))
+	if kVal > 1 {
+		return &kVal
+	}
 	return nil
 }
 
