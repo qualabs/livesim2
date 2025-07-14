@@ -249,7 +249,7 @@ func TestFetches(t *testing.T) {
 	}
 }
 
-func TestCalcSubSegementPart(t *testing.T) {
+func TestCalcSubSegmentPart(t *testing.T) {
 	cases := []struct {
 		desc              string
 		segmentPart       string
@@ -312,7 +312,7 @@ func TestCalcSubSegementPart(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			newSegmentPart, subSegmentPart, err := calcSubSegementPart(tc.segmentPart)
+			newSegmentPart, subSegmentPart, err := calcSubSegmentPart(tc.segmentPart)
 			if tc.shouldErr {
 				require.Error(t, err)
 				return

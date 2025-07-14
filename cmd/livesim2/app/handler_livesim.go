@@ -321,7 +321,7 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 	}
 	if cfg.EnableLowDelayMode {
 		// Sub segement part low-delay mode should return each subSegment as a separeated request
-		newSegmentPart, subSegmentPart, err := calcSubSegementPart(segmentPart)
+		newSegmentPart, subSegmentPart, err := calcSubSegmentPart(segmentPart)
 		if err != nil {
 			return 0, err
 		}
@@ -334,7 +334,7 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 
 var subSegmentRegex = regexp.MustCompile(`^(.*_\d+)_(\d+)$`)
 
-func calcSubSegementPart(segmentPart string) (string, string, error) {
+func calcSubSegmentPart(segmentPart string) (string, string, error) {
 	ext := filepath.Ext(segmentPart)
 
 	if ext == "" {
