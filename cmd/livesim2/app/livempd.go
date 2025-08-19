@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -100,7 +101,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		}
 	}
 
-	if cfg.EnableSSR {
+	if cfg.LowDelayAdaptationSet != "" {
 		if mpd.Profiles != "" {
 			mpd.Profiles = mpd.Profiles + "," + ProfileAdvancedLinear
 		} else {
@@ -259,20 +260,9 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				})
 		}
 
-		if as.ContentType == "video" && cfg.EnableSSR {
-			// EssentialProperty schemeIdUri="urn:mpeg:dash:ssr:2023"
-			ep := m.NewDescriptor(SsrSchemeIdUri, "", "")
-			as.EssentialProperties = append(as.EssentialProperties, ep)
-
-			// Add SegmentSequenceProperties to signal Low-Delay
-			as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
-				SapType: 1,
-				Cadence: 1,
-			}
-
-			// AdaptationSet@startWithSAP = 1
-			as.StartWithSAP = 1
-			explicitChunkDurS = cfg.ChunkDurS
+		ssrValue := getSSRValue(as, cfg.LowDelayAdaptationSet)
+		if ssrValue != nil {
+			setSSRAdaptationSet(as, *ssrValue, cfg)
 		}
 
 		atoMS, err := setOffsetInAdaptationSet(cfg, as)
@@ -369,6 +359,25 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	addPatchLocation(mpd, cfg)
 
 	return mpd, nil
+}
+
+func setSSRAdaptationSet(as *m.AdaptationSetType, ssrValue string, cfg *ResponseConfig)() {
+	if as.ContentType == "video" {
+		// EssentialProperty schemeIdUri="urn:mpeg:dash:ssr:2023"
+		ep := m.NewDescriptor(SsrSchemeIdUri, ssrValue, "")
+		as.EssentialProperties = append(as.EssentialProperties, ep)
+
+		// SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value=ssrValue
+
+		// Add SegmentSequenceProperties to signal Low-Delay
+		as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
+			SapType: 1,
+			Cadence: 1,
+		}
+
+		// AdaptationSet@startWithSAP = 1
+		as.StartWithSAP = 1
+	}
 }
 
 // lastPeriodStartTime returns the absolute startTime of the last Period.
@@ -624,7 +633,7 @@ func adjustAdaptationSetForTimelineTime(se segEntries, as *m.AdaptationSetType, 
 	as.SegmentTemplate.StartNumber = nil
 	as.SegmentTemplate.Duration = nil
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Time$")
-	if cfg.EnableSSR && as.ContentType == "video" {
+	if isSSRAdaptationSet(as, cfg.LowDelayAdaptationSet) && as.ContentType == "video" {
 		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Time$_$SubNumber$")
 	}
 	as.SegmentTemplate.Timescale = Ptr(se.mediaTimescale)
@@ -639,7 +648,7 @@ func adjustAdaptationSetForTimelineNr(se segEntries, as *m.AdaptationSetType, cf
 	as.SegmentTemplate.StartNumber = nil
 	as.SegmentTemplate.Duration = nil
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
-	if cfg.EnableSSR && as.ContentType == "video" {
+	if isSSRAdaptationSet(as, cfg.LowDelayAdaptationSet) && as.ContentType == "video" {
 		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
 	}
 	as.SegmentTemplate.Timescale = Ptr(se.mediaTimescale)
@@ -672,7 +681,7 @@ func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.Ad
 		as.SegmentTemplate.StartNumber = startNr
 	}
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
-	if cfg.EnableSSR && as.ContentType == "video" {
+	if isSSRAdaptationSet(as, cfg.LowDelayAdaptationSet) && as.ContentType == "video" {
 		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
 		as.SegmentTemplate.K = calculateK(
 			uint64(*as.SegmentTemplate.Duration), int(*as.SegmentTemplate.Timescale), cfg.ChunkDurS)
@@ -955,4 +964,40 @@ func contentTypeFromMimeType(mimeType string) string {
 	default:
 		return ""
 	}
+}
+
+// isSSRAdaptationSet checks if an AdaptationSet is configured for Low Delay mode
+// by matching its ID against the adaptationSetId values in the lowDelayAdaptationSet configuration.
+// The lowDelayAdaptationSet format is: "adaptationSetId,ssrValue;adaptationSetId,ssrValue;..."
+func isSSRAdaptationSet(as *m.AdaptationSetType, lowDelayAdaptationSet string) bool {
+	return getSSRValue(as, lowDelayAdaptationSet) != nil
+}
+
+// getSSRValue gets the SSR value for a Low Delay AdaptationSet
+// by matching its ID against the adaptationSetId values in the lowDelayAdaptationSet configuration.
+// Returns the ssrValue as string if found, nil otherwise.
+// The lowDelayAdaptationSet format is: "adaptationSetId,ssrValue;adaptationSetId,ssrValue;..."
+func getSSRValue(as *m.AdaptationSetType, lowDelayAdaptationSet string) *string {
+	if as.Id == nil || lowDelayAdaptationSet == "" {
+		return nil
+	}
+	
+	asID := *as.Id
+	pairs := strings.Split(lowDelayAdaptationSet, ";")
+	
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ",")
+		if len(parts) == 2 {
+			adaptationSetIDStr := strings.TrimSpace(parts[0])
+			ssrValueStr := strings.TrimSpace(parts[1])
+			
+			if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
+				if uint32(adaptationSetID) == asID {
+					return &ssrValueStr
+				}
+			}
+		}
+	}
+	
+	return nil
 }

@@ -126,10 +126,13 @@
 			low-latency target (milliseconds)
 				<input type="text" id="ltgt" name="ltgt" value="{{.LlTarget}}" />
 			</label>
-
-			<label for="ssr">
-			Enable SSR (L3D)
-				<input type="checkbox" id="ssr" name="ssr" {{if .SSR}}checked{{end}} />
+		</details>
+		
+		<details>
+			<summary>Enable SSR</summary>
+			<label for="lowDelayAdaptationSet">
+			SSR Configuration (adaptationSetId,ssrValue;adaptationSetId,ssrValue;...)
+				<textarea id="lowDelayAdaptationSet" name="lowDelayAdaptationSet" rows="3">{{.LowDelayAdaptationSetConfig}}</textarea>
 			</label>
 		</details>
 
