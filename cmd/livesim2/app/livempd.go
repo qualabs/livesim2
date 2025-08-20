@@ -391,7 +391,7 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32
 }
 
 func updateSwitchingAdaptationSet(as *m.AdaptationSetType, prevMap map[uint32]uint32) {
-	if as.ContentType == "video" {
+	if as.ContentType == "video" && as.Id != nil {
 		// SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="next_AS_ID,previous_AS_ID"
 		if switchingValue, exists := prevMap[*as.Id]; exists {
 			sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(switchingValue), 10), "")
