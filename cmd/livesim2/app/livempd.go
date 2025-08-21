@@ -1000,7 +1000,7 @@ func isSSRAdaptationSet(as *m.AdaptationSetType, nextMap map[uint32]uint32) bool
 // getSSRAdaptationSetSwitchingValue gets the switching value for an AdaptationSet
 // using pre-calculated maps for next and previous adaptation set relationships.
 func getSSRAdaptationSetSwitchingValue(as *m.AdaptationSetType, nextMap, prevMap map[uint32]uint32) string {
-	if as.Id == nil || nextMap == nil || prevMap == nil {
+	if as == nil || as.Id == nil || nextMap == nil || prevMap == nil {
 		return ""
 	}
 	
