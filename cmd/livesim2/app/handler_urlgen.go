@@ -143,6 +143,7 @@ type urlGenData struct {
 	ChunkDur                    string // chunk duration (float in seconds)
 	LlTarget                    int    // low-latency target (in milliseconds)
 	LowDelayAdaptationSetConfig string // low delay Adaptation Set configuration (adaptationSetId,ssrValue;...)
+	LowDelayChunkDur            string // low delay chunk duration (float in seconds)
 	TimeSubsStpp                string // languages for generated subtitles in stpp-format (comma-separated)
 	TimeSubsWvtt                string // languages for generated subtitles in wvtt-format (comma-separated)
 	TimeSubsDur                 string // cue duration of generated subtitles (in milliseconds)
@@ -410,6 +411,15 @@ func createURL(r *http.Request, aInfo assetsInfo, drmCfg *drm.DrmConfig) urlGenD
 			sb.WriteString(fmt.Sprintf("lowdelayadaptationset_%s/", lowDelayAdaptationSet))
 		}
 	}
+	lowDelayChunkDur := q.Get("lowDelayChunkDur")
+	if lowDelayChunkDur != "" {
+		if err := validateLowDelayChunkDur(lowDelayChunkDur); err != nil {
+			data.Errors = append(data.Errors, fmt.Sprintf("invalid lowDelayChunkDur: %s", err.Error()))
+		} else {
+			data.LowDelayChunkDur = lowDelayChunkDur
+			sb.WriteString(fmt.Sprintf("lowdelaychunkduration_%s/", lowDelayChunkDur))
+		}
+	}
 
 	sb.WriteString(fmt.Sprintf("%s/%s", asset, mpd))
 
@@ -457,6 +467,30 @@ func validateLowDelayAdaptationSet(config string) error {
 		ssrValue := strings.TrimSpace(parts[1])
 		if _, err := strconv.Atoi(ssrValue); err != nil {
 			return fmt.Errorf("ssrValue '%s' must be an integer", ssrValue)
+		}
+	}
+	return nil
+}
+
+// validateLowDelayChunkDur validates the format adaptationSetId,chunkDuration;adaptationSetId,chunkDuration;...
+// where adaptationSetId must be an integer and chunkDuration must be a decimal number in seconds (e.g., 1, 0.1)
+func validateLowDelayChunkDur(config string) error {
+	if config == "" {
+		return nil
+	}
+	pairs := strings.Split(config, ";")
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ",")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid format in pair '%s': expected 'adaptationSetId,chunkDuration'", pair)
+		}
+		adaptationSetId := strings.TrimSpace(parts[0])
+		if _, err := strconv.Atoi(adaptationSetId); err != nil {
+			return fmt.Errorf("adaptationSetId '%s' must be an integer", adaptationSetId)
+		}
+		chunkDuration := strings.TrimSpace(parts[1])
+		if _, err := strconv.ParseFloat(chunkDuration, 64); err != nil {
+			return fmt.Errorf("chunkDuration '%s' must be a decimal number in seconds", chunkDuration)
 		}
 	}
 	return nil

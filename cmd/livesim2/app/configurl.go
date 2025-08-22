@@ -113,6 +113,7 @@ type ResponseConfig struct {
 	Traffic                      []LossItvls       `json:"Traffic,omitempty"`
 	Query                        *Query            `json:"Query,omitempty"`
 	LowDelayAdaptationSet        string            `json:"LowDelayAdaptationSet,omitempty"`
+	LowDelayChunkDur             string            `json:"LowDelayChunkDur,omitempty"`
 }
 
 // SegStatusCodes configures regular extraordinary segment response codes
@@ -399,6 +400,8 @@ cfgLoop:
 			cfg.Query = sc.ParseQuery(key, val)
 		case "lowdelayadaptationset":
 			cfg.LowDelayAdaptationSet = val
+		case "lowdelaychunkduration":
+			cfg.LowDelayChunkDur = val
 		default:
 			contentStartIdx = i
 			break cfgLoop
