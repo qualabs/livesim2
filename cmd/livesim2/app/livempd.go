@@ -101,9 +101,10 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		}
 	}
 
-	// Parse LowDelayAdaptationSet configuration once at the beginning
+	// Parse SSR configuration
 	ssrNextMap, ssrPrevMap := parseLowDelayAdaptationSet(cfg.LowDelayAdaptationSet)
-
+	lowDelayChunkDurMap := parseLowDelayChunkDuration(cfg.LowDelayChunkDur)
+	
 	if cfg.LowDelayAdaptationSet != "" {
 		if mpd.Profiles != "" {
 			mpd.Profiles = mpd.Profiles + "," + ProfileAdvancedLinear
@@ -263,7 +264,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				})
 		}
 
-		updateSSRAdaptationSet(as, ssrNextMap, ssrPrevMap)
+		updateSSRAdaptationSet(as, ssrNextMap, ssrPrevMap,lowDelayChunkDurMap, &explicitChunkDurS)
 		updateSwitchingAdaptationSet(as, ssrPrevMap)
 
 		atoMS, err := setOffsetInAdaptationSet(cfg, as)
@@ -308,7 +309,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				mpd.PublishTime = m.ConvertToDateTime(calcPublishTime(cfg, se.lsi))
 			}
 		case segmentNumber:
-			err := adjustAdaptationSetForSegmentNumber(cfg, a, as, ssrNextMap)
+			err := adjustAdaptationSetForSegmentNumber(cfg, a, as, ssrNextMap, lowDelayChunkDurMap)
 			if err != nil {
 				return nil, fmt.Errorf("adjustASForSegmentNumber: %w", err)
 			}
@@ -362,7 +363,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	return mpd, nil
 }
 
-func updateSSRAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32]uint32) {
+func updateSSRAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32]uint32, lowDelayChunkDurMap map[uint32]float64, explicitChunkDurS **float64) {
 	if as.ContentType == "video" && as.Id != nil {
 		// Check if this adaptation set is configured for SSR
 		if next, exists := nextMap[*as.Id]; exists {
@@ -386,6 +387,10 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32
 
 			// AdaptationSet@startWithSAP = 1
 			as.StartWithSAP = 1
+
+			if chunkDur, exists := lowDelayChunkDurMap[*as.Id]; exists {
+				*explicitChunkDurS = &chunkDur
+			}
 		}
 	}
 }
@@ -680,7 +685,7 @@ func adjustAdaptationSetForTimelineNr(se segEntries, as *m.AdaptationSetType, ne
 	return nil
 }
 
-func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.AdaptationSetType, nextMap map[uint32]uint32) error {
+func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.AdaptationSetType, nextMap map[uint32]uint32, lowDelayChunkDurMap map[uint32]float64) error {
 	if as.SegmentTemplate.Duration == nil {
 		r0 := as.Representations[0]
 		rep0 := a.Reps[r0.Id]
@@ -703,8 +708,10 @@ func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.Ad
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
 	if isSSRAdaptationSet(as, nextMap) && as.ContentType == "video" {
 		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
-		as.SegmentTemplate.K = calculateK(
-			uint64(*as.SegmentTemplate.Duration), int(*as.SegmentTemplate.Timescale), cfg.ChunkDurS)
+		if chunkDur, exists := lowDelayChunkDurMap[*as.Id]; exists {
+				as.SegmentTemplate.K = calculateK(
+					uint64(*as.SegmentTemplate.Duration), int(*as.SegmentTemplate.Timescale), &chunkDur)
+			}
 	}
 	return nil
 }
@@ -1066,4 +1073,31 @@ func parseLowDelayAdaptationSet(config string) (nextMap, prevMap map[uint32]uint
 	}
 	
 	return
+}
+
+// parseLowDelayChunkDuration parses the LowDelayChunkDur configuration
+// and returns a map where the key is adaptationSetId and value is chunkDuration in seconds.
+func parseLowDelayChunkDuration(config string) map[uint32]float64 {
+	chunkDurMap := make(map[uint32]float64)
+	
+	if config == "" {
+		return chunkDurMap
+	}
+	
+	pairs := strings.Split(config, ";")
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ",")
+		if len(parts) == 2 {
+			adaptationSetIDStr := strings.TrimSpace(parts[0])
+			chunkDurationStr := strings.TrimSpace(parts[1])
+			
+			if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
+				if chunkDuration, err := strconv.ParseFloat(chunkDurationStr, 64); err == nil {
+					chunkDurMap[uint32(adaptationSetID)] = chunkDuration
+				}
+			}
+		}
+	}
+	
+	return chunkDurMap
 }
