@@ -126,10 +126,18 @@
 			low-latency target (milliseconds)
 				<input type="text" id="ltgt" name="ltgt" value="{{.LlTarget}}" />
 			</label>
+		</details>
+		
+		<details>
+			<summary>Enable SSR</summary>
+			<label for="lowDelayAdaptationSet">
+			SSR Configuration (adaptationSetId,ssrValue;adaptationSetId,ssrValue;...)
+				<textarea id="lowDelayAdaptationSet" name="lowDelayAdaptationSet" rows="3">{{.LowDelayAdaptationSetConfig}}</textarea>
+			</label>
 
-			<label for="ssr">
-			Enable SSR (L3D)
-				<input type="checkbox" id="ssr" name="ssr" {{if .SSR}}checked{{end}} />
+			<label for="lowDelayChunkDur">
+			chunk duration for low-delay (decimal) (adaptationSetId,chunkDuration;adaptationSetId,chunkDuration;...)
+				<textarea id="lowDelayChunkDur" name="lowDelayChunkDur" rows="3">{{.LowDelayChunkDur}}</textarea>
 			</label>
 		</details>
 

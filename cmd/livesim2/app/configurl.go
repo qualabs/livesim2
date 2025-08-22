@@ -67,6 +67,7 @@ const (
 const (
 	UrlParamSchemeIdUri = "urn:mpeg:dash:urlparam:2014"
 	SsrSchemeIdUri      = "urn:mpeg:dash:ssr:2023"
+	AdaptationSetSwitchingSchemeIdUri = "urn:mpeg:dash:adaptation-set-switching:2016"
 )
 
 type ResponseConfig struct {
@@ -111,7 +112,8 @@ type ResponseConfig struct {
 	SegStatusCodes               []SegStatusCodes  `json:"SegStatus,omitempty"`
 	Traffic                      []LossItvls       `json:"Traffic,omitempty"`
 	Query                        *Query            `json:"Query,omitempty"`
-	EnableSSR                    bool              `json:"EnableSSR,omitempty"`
+	LowDelayAdaptationSet        string            `json:"LowDelayAdaptationSet,omitempty"`
+	LowDelayChunkDur             string            `json:"LowDelayChunkDur,omitempty"`
 }
 
 // SegStatusCodes configures regular extraordinary segment response codes
@@ -352,8 +354,6 @@ cfgLoop:
 			cfg.SegTimelineFlag = true
 		case "segtimelinenr":
 			cfg.SegTimelineNrFlag = true
-		case "ssr": // SSR for L3D (Low latency low delay)
-			cfg.EnableSSR = true
 		case "peroff": // Set the period offset
 			cfg.PeriodOffset = sc.AtoiPtr(key, val)
 		case "scte35": // Signal this many SCTE-35 ad periods inband (emsg messages) every minute
@@ -398,6 +398,10 @@ cfgLoop:
 			}
 		case "annexI":
 			cfg.Query = sc.ParseQuery(key, val)
+		case "lowdelayadaptationset":
+			cfg.LowDelayAdaptationSet = val
+		case "lowdelaychunkduration":
+			cfg.LowDelayChunkDur = val
 		default:
 			contentStartIdx = i
 			break cfgLoop
