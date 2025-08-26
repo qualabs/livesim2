@@ -267,6 +267,16 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		updateSSRAdaptationSet(as, ssrNextMap, ssrPrevMap,lowDelayChunkDurMap, &explicitChunkDurS)
 		updateSwitchingAdaptationSet(as, ssrPrevMap)
 
+		// Update RepData with LowDelayChunkDur if configured
+		if explicitChunkDurS != nil {
+			// Update all representations of this adaptation set
+			for _, rep := range as.Representations {
+				if repData, exists := a.Reps[rep.Id]; exists {
+					repData.LowDelayChunkDurS = explicitChunkDurS
+				}
+			}
+		}
+
 		atoMS, err := setOffsetInAdaptationSet(cfg, as)
 		if err != nil {
 			return nil, err

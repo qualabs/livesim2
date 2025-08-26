@@ -402,6 +402,7 @@ cfgLoop:
 			cfg.LowDelayAdaptationSet = val
 		case "lowdelaychunkduration":
 			cfg.LowDelayChunkDur = val
+			cfg.AvailabilityTimeCompleteFlag = false
 		default:
 			contentStartIdx = i
 			break cfgLoop

@@ -667,7 +667,10 @@ func prepareChunks(log *slog.Logger, vodFS fs.FS, a *asset, cfg *ResponseConfig,
 
 	// Calculate chunk duration in media timescale units
 	var chunkDur int
-	if cfg.ChunkDurS != nil && *cfg.ChunkDurS > 0 {
+	if rep.LowDelayChunkDurS != nil && *rep.LowDelayChunkDurS > 0 {
+		// Use low delay chunk duration from adaptation set configuration
+		chunkDur = int(*rep.LowDelayChunkDurS * float64(rep.MediaTimescale))
+	} else if cfg.ChunkDurS != nil && *cfg.ChunkDurS > 0 {
 		// Use explicit chunk duration from URL parameter
 		chunkDur = int(*cfg.ChunkDurS * float64(rep.MediaTimescale))
 	} else {
@@ -706,7 +709,7 @@ func setHeaders(w http.ResponseWriter, so segOut, segmentPart string) error {
 
 // writeChunkedSegment splits a segment into chunks and send them as they become available timewise.
 //
-// nowMS servers as reference for the current time and can be set to any value. Media time will
+// nowMS serves as reference for the current time and can be set to any value. Media time will
 // be incremented with respect to nowMS.
 func writeChunkedSegment(ctx context.Context, log *slog.Logger, w http.ResponseWriter, cfg *ResponseConfig, drmCfg *drm.DrmConfig,
 	vodFS fs.FS, a *asset, segmentPart string, nowMS int, isLast bool) error {
