@@ -265,7 +265,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		}
 
 		updateSSRAdaptationSet(as, ssrNextMap, ssrPrevMap,lowDelayChunkDurMap, &explicitChunkDurS)
-		updateSwitchingAdaptationSet(as, ssrPrevMap)
+		updateSwitchingAdaptationSet(as, ssrNextMap, ssrPrevMap)
 
 		// Update RepData with LowDelayChunkDur if configured
 		if explicitChunkDurS != nil {
@@ -405,12 +405,15 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32
 	}
 }
 
-func updateSwitchingAdaptationSet(as *m.AdaptationSetType, prevMap map[uint32]uint32) {
+func updateSwitchingAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32]uint32) {
 	if as.ContentType == "video" && as.Id != nil {
-		// SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="next_AS_ID,previous_AS_ID"
-		if switchingValue, exists := prevMap[*as.Id]; exists {
-			sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(switchingValue), 10), "")
-			as.SupplementalProperties = append(as.SupplementalProperties, sp)
+		// Only execute if as.Id is NOT in nextMap
+		if _, existsInNext := nextMap[*as.Id]; !existsInNext {
+			// SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="next_AS_ID,previous_AS_ID"
+			if switchingValue, exists := prevMap[*as.Id]; exists {
+				sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(switchingValue), 10), "")
+				as.SupplementalProperties = append(as.SupplementalProperties, sp)
+			}
 		}
 	}
 }
