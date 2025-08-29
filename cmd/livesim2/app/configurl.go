@@ -66,6 +66,8 @@ const (
 
 const (
 	UrlParamSchemeIdUri = "urn:mpeg:dash:urlparam:2014"
+	SsrSchemeIdUri      = "urn:mpeg:dash:ssr:2023"
+	AdaptationSetSwitchingSchemeIdUri = "urn:mpeg:dash:adaptation-set-switching:2016"
 )
 
 type ResponseConfig struct {
@@ -110,6 +112,9 @@ type ResponseConfig struct {
 	SegStatusCodes               []SegStatusCodes  `json:"SegStatus,omitempty"`
 	Traffic                      []LossItvls       `json:"Traffic,omitempty"`
 	Query                        *Query            `json:"Query,omitempty"`
+	LowDelayFlag 				 bool              `json:"LowDelayFlag,omitempty"`
+	LowDelayAdaptationSet        string            `json:"LowDelayAdaptationSet,omitempty"`
+	LowDelayChunkDur             string            `json:"LowDelayChunkDur,omitempty"`
 }
 
 // SegStatusCodes configures regular extraordinary segment response codes
@@ -241,6 +246,7 @@ func NewResponseConfig() *ResponseConfig {
 	c := ResponseConfig{
 		StartTimeS:                   defaultAvailabilityStartTimeS,
 		AvailabilityTimeCompleteFlag: defaultAvailabilityTimeComplete,
+		LowDelayFlag: 				  defaultLowDelayFlag,
 		TimeShiftBufferDepthS:        Ptr(defaultTimeShiftBufferDepthS),
 		StartNr:                      Ptr(defaultStartNr),
 		TimeSubsDurMS:                defaultTimeSubsDurMS,
@@ -394,6 +400,12 @@ cfgLoop:
 			}
 		case "annexI":
 			cfg.Query = sc.ParseQuery(key, val)
+		case "lowdelayadaptationset":
+			cfg.LowDelayAdaptationSet = val
+			cfg.LowDelayFlag = true
+		case "lowdelaychunkduration":
+			cfg.LowDelayChunkDur = val
+			cfg.AvailabilityTimeCompleteFlag = false
 		default:
 			contentStartIdx = i
 			break cfgLoop
