@@ -268,14 +268,15 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 			prevID, prevIDExists := ssrPrevMap[*as.Id]
 			nextID, nextIDExists := ssrNextMap[*as.Id]
 
+			var prevIDPtr *uint32
+			if prevIDExists {
+				prevIDPtr = &prevID
+			}
+
 			if nextIDExists {
-				var prevIDPtr *uint32
-				if prevIDExists {
-					prevIDPtr = &prevID
-				}
 				updateSSRAdaptationSet(as, nextID, prevIDPtr, lowDelayChunkDurMap, &explicitChunkDurS)
-			} else if prevIDExists{
-				updateSwitchingAdaptationSet(as, prevID)
+			} else {
+				updateSwitchingAdaptationSet(as, prevIDPtr)
 				// Low Latency rendition
 				if cfg.ChunkDurS != nil {
 					explicitChunkDurS = cfg.ChunkDurS
@@ -419,9 +420,11 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint
 	}
 }
 
-func updateSwitchingAdaptationSet(as *m.AdaptationSetType, prevID uint32) {
-		sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(prevID), 10), "")
+func updateSwitchingAdaptationSet(as *m.AdaptationSetType, prevIDPtr *uint32) {
+	if prevIDPtr != nil {
+		sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(*prevIDPtr), 10), "")
 		as.SupplementalProperties = append(as.SupplementalProperties, sp)
+	}
 }
 
 // lastPeriodStartTime returns the absolute startTime of the last Period.
