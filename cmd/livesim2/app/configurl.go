@@ -112,6 +112,7 @@ type ResponseConfig struct {
 	SegStatusCodes               []SegStatusCodes  `json:"SegStatus,omitempty"`
 	Traffic                      []LossItvls       `json:"Traffic,omitempty"`
 	Query                        *Query            `json:"Query,omitempty"`
+	LowDelayFlag 				 bool              `json:"LowDelayFlag,omitempty"`
 	LowDelayAdaptationSet        string            `json:"LowDelayAdaptationSet,omitempty"`
 	LowDelayChunkDur             string            `json:"LowDelayChunkDur,omitempty"`
 }
@@ -245,6 +246,7 @@ func NewResponseConfig() *ResponseConfig {
 	c := ResponseConfig{
 		StartTimeS:                   defaultAvailabilityStartTimeS,
 		AvailabilityTimeCompleteFlag: defaultAvailabilityTimeComplete,
+		LowDelayFlag: 				  defaultLowDelayFlag,
 		TimeShiftBufferDepthS:        Ptr(defaultTimeShiftBufferDepthS),
 		StartNr:                      Ptr(defaultStartNr),
 		TimeSubsDurMS:                defaultTimeSubsDurMS,
@@ -400,6 +402,7 @@ cfgLoop:
 			cfg.Query = sc.ParseQuery(key, val)
 		case "lowdelayadaptationset":
 			cfg.LowDelayAdaptationSet = val
+			cfg.LowDelayFlag = true
 		case "lowdelaychunkduration":
 			cfg.LowDelayChunkDur = val
 			cfg.AvailabilityTimeCompleteFlag = false

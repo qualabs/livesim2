@@ -105,7 +105,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	ssrNextMap, ssrPrevMap := parseLowDelayAdaptationSet(cfg.LowDelayAdaptationSet)
 	lowDelayChunkDurMap := parseLowDelayChunkDuration(cfg.LowDelayChunkDur)
 	
-	if cfg.LowDelayAdaptationSet != "" {
+	if cfg.LowDelayFlag {
 		if mpd.Profiles != "" {
 			mpd.Profiles = mpd.Profiles + "," + ProfileAdvancedLinear
 		} else {
@@ -264,8 +264,10 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				})
 		}
 
-		updateSSRAdaptationSet(as, ssrNextMap, ssrPrevMap,lowDelayChunkDurMap, &explicitChunkDurS)
-		updateSwitchingAdaptationSet(as, ssrNextMap, ssrPrevMap)
+		if cfg.LowDelayFlag {
+			updateSSRAdaptationSet(as, ssrNextMap, ssrPrevMap,lowDelayChunkDurMap, &explicitChunkDurS)
+			updateSwitchingAdaptationSet(as, ssrNextMap, ssrPrevMap, &explicitChunkDurS, cfg)
+		}
 
 		// Update RepData with LowDelayChunkDur if configured
 		if explicitChunkDurS != nil {
@@ -405,7 +407,7 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32
 	}
 }
 
-func updateSwitchingAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32]uint32) {
+func updateSwitchingAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[uint32]uint32, explicitChunkDurS **float64, cfg *ResponseConfig) {
 	if as.ContentType == "video" && as.Id != nil {
 		// Only execute if as.Id is NOT in nextMap
 		if _, existsInNext := nextMap[*as.Id]; !existsInNext {
@@ -413,6 +415,10 @@ func updateSwitchingAdaptationSet(as *m.AdaptationSetType, nextMap, prevMap map[
 			if switchingValue, exists := prevMap[*as.Id]; exists {
 				sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(switchingValue), 10), "")
 				as.SupplementalProperties = append(as.SupplementalProperties, sp)
+			}
+			// Low Latency rendition
+			if cfg.ChunkDurS != nil {
+				*explicitChunkDurS = cfg.ChunkDurS
 			}
 		}
 	}
