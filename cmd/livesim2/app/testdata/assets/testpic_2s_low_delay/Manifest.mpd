@@ -26,11 +26,11 @@
    <Representation id="LD_360" codecs="avc1.64001E" width="640" height="360" frameRate="30" sar="1:1" bandwidth="303557">
    </Representation>
   </AdaptationSet>
-  <!-- <AdaptationSet id="3" segmentAlignment="true" mimeType="audio/mp4" startWithSAP="1">
+  <AdaptationSet id="3" segmentAlignment="true" mimeType="audio/mp4" startWithSAP="1">
    <SegmentTemplate media="$RepresentationID$/$Number$.m4s" initialization="$RepresentationID$/init.mp4" timescale="1000" startNumber="1" duration="2000"/>
    <Representation id="A48" codecs="mp4a.40.2" audioSamplingRate="48000" bandwidth="48000">
     <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
    </Representation>
-  </AdaptationSet> -->
+  </AdaptationSet>
  </Period>
 </MPD>
