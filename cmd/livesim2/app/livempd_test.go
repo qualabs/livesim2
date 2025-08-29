@@ -1237,86 +1237,6 @@ func TestParseLowDelayChunkDuration(t *testing.T) {
 	}
 }
 
-func TestGetSSRAdaptationSetSwitchingValue(t *testing.T) {
-	cases := []struct {
-		desc     string
-		as       *m.AdaptationSetType
-		nextMap  map[uint32]uint32
-		prevMap  map[uint32]uint32
-		expected string
-	}{
-		{
-			desc:     "nil adaptation set",
-			as:       nil,
-			nextMap:  map[uint32]uint32{1: 2},
-			prevMap:  map[uint32]uint32{2: 1},
-			expected: "",
-		},
-		{
-			desc:     "adaptation set with nil ID",
-			as:       &m.AdaptationSetType{},
-			nextMap:  map[uint32]uint32{1: 2},
-			prevMap:  map[uint32]uint32{2: 1},
-			expected: "",
-		},
-		{
-			desc:     "nil nextMap",
-			as:       &m.AdaptationSetType{Id: Ptr(uint32(1))},
-			nextMap:  nil,
-			prevMap:  map[uint32]uint32{2: 1},
-			expected: "",
-		},
-		{
-			desc:     "nil prevMap",
-			as:       &m.AdaptationSetType{Id: Ptr(uint32(1))},
-			nextMap:  map[uint32]uint32{1: 2},
-			prevMap:  nil,
-			expected: "",
-		},
-		{
-			desc:     "adaptation set has both next and previous",
-			as:       &m.AdaptationSetType{Id: Ptr(uint32(2))},
-			nextMap:  map[uint32]uint32{1: 2, 2: 3},
-			prevMap:  map[uint32]uint32{2: 1, 3: 2},
-			expected: "3,1",
-		},
-		{
-			desc:     "adaptation set has only next",
-			as:       &m.AdaptationSetType{Id: Ptr(uint32(1))},
-			nextMap:  map[uint32]uint32{1: 2, 2: 3},
-			prevMap:  map[uint32]uint32{3: 2},
-			expected: "2",
-		},
-		{
-			desc:     "adaptation set has only previous",
-			as:       &m.AdaptationSetType{Id: Ptr(uint32(3))},
-			nextMap:  map[uint32]uint32{1: 2},
-			prevMap:  map[uint32]uint32{3: 2},
-			expected: "2",
-		},
-		{
-			desc:     "adaptation set not found in maps",
-			as:       &m.AdaptationSetType{Id: Ptr(uint32(5))},
-			nextMap:  map[uint32]uint32{1: 2},
-			prevMap:  map[uint32]uint32{2: 1},
-			expected: "",
-		},
-		{
-			desc:     "empty maps",
-			as:       &m.AdaptationSetType{Id: Ptr(uint32(1))},
-			nextMap:  make(map[uint32]uint32),
-			prevMap:  make(map[uint32]uint32),
-			expected: "",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.desc, func(t *testing.T) {
-			result := getSSRAdaptationSetSwitchingValue(tc.as, tc.nextMap, tc.prevMap)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
 
 func TestUpdateSSRAdaptationSet(t *testing.T) {
 	cases := []struct {
@@ -1434,7 +1354,17 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 
 			var explicitChunkDurS *float64
 			lowDelayChunkDurMap := make(map[uint32]float64)
-			updateSSRAdaptationSet(tc.as, tc.nextMap, tc.prevMap, lowDelayChunkDurMap, &explicitChunkDurS)
+			
+			if tc.as.Id != nil && tc.as.ContentType == "video" {
+				nextID, nextExists := tc.nextMap[*tc.as.Id]
+				if nextExists {
+					var prevIDPtr *uint32
+					if prevID, prevExists := tc.prevMap[*tc.as.Id]; prevExists {
+						prevIDPtr = &prevID
+					}
+					updateSSRAdaptationSet(tc.as, nextID, prevIDPtr, lowDelayChunkDurMap, &explicitChunkDurS)
+				}
+			}
 
 			if tc.expectEssentialProperty {
 				assert.Greater(t, len(tc.as.EssentialProperties), originalEPCount, "EssentialProperty should be added")
