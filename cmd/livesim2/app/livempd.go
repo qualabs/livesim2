@@ -273,12 +273,13 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				prevIDPtr = &prevID
 			}
 
-			//Adaptation Set is Low Delay
 			if nextIDExists {
+				//Low Delay Adaptation Set
 				updateSSRAdaptationSet(as, nextID, prevIDPtr, lowDelayChunkDurMap, &explicitChunkDurS)
-			} else {
-				updateSwitchingAdaptationSet(as, prevIDPtr)
-				// Low Latency
+			} else if prevIDExists {
+				// Regular Adaptation Set for switching
+				updateSwitchingAdaptationSet(as, prevID)
+				// Low Latency Adaptation Set
 				if cfg.ChunkDurS != nil {
 					explicitChunkDurS = cfg.ChunkDurS
 				}
@@ -421,11 +422,9 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint
 	}
 }
 
-func updateSwitchingAdaptationSet(as *m.AdaptationSetType, prevIDPtr *uint32) {
-	if prevIDPtr != nil {
-		sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(*prevIDPtr), 10), "")
-		as.SupplementalProperties = append(as.SupplementalProperties, sp)
-	}
+func updateSwitchingAdaptationSet(as *m.AdaptationSetType, prevID uint32) {
+	sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(prevID), 10), "")
+	as.SupplementalProperties = append(as.SupplementalProperties, sp)
 }
 
 // lastPeriodStartTime returns the absolute startTime of the last Period.
