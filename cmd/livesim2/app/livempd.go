@@ -277,7 +277,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				updateSSRAdaptationSet(as, nextID, prevIDPtr, lowDelayChunkDurMap, &explicitChunkDurS)
 			} else {
 				updateSwitchingAdaptationSet(as, prevIDPtr)
-				// Low Latency rendition
+				// Low Latency
 				if cfg.ChunkDurS != nil {
 					explicitChunkDurS = cfg.ChunkDurS
 				}
@@ -320,7 +320,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		}
 		switch templateType {
 		case timeLineTime:
-			err := adjustAdaptationSetForTimelineTime(se, as, cfg, ssrNextMap)
+			err := adjustAdaptationSetForTimelineTime(se, as, ssrNextMap)
 			if err != nil {
 				return nil, fmt.Errorf("adjustASForTimelineTime: %w", err)
 			}
@@ -673,7 +673,7 @@ func setOffsetInAdaptationSet(cfg *ResponseConfig, as *m.AdaptationSetType) (ato
 	return atoMS, nil
 }
 
-func adjustAdaptationSetForTimelineTime(se segEntries, as *m.AdaptationSetType, cfg *ResponseConfig, nextMap map[uint32]uint32) error {
+func adjustAdaptationSetForTimelineTime(se segEntries, as *m.AdaptationSetType, nextMap map[uint32]uint32) error {
 	if as.SegmentTemplate.SegmentTimeline == nil {
 		as.SegmentTemplate.SegmentTimeline = &m.SegmentTimelineType{}
 	}
