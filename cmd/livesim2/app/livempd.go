@@ -273,6 +273,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				prevIDPtr = &prevID
 			}
 
+			//Adaptation Set is Low Delay
 			if nextIDExists {
 				updateSSRAdaptationSet(as, nextID, prevIDPtr, lowDelayChunkDurMap, &explicitChunkDurS)
 			} else {
