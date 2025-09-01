@@ -407,7 +407,8 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	return mpd, nil
 }
 
-func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint32, lowDelayChunkDurMap map[uint32]float64, explicitChunkDurS **float64) {
+func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint32,
+	lowDelayChunkDurMap map[uint32]float64, explicitChunkDurS **float64) {
 	// EssentialProperty schemeIdUri="urn:mpeg:dash:ssr:2023"
 	ssrValue := strconv.FormatUint(uint64(nextID), 10)
 	ep := m.NewDescriptor(SsrSchemeIdUri, ssrValue, "")
