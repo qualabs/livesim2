@@ -281,8 +281,23 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				updateSwitchingAdaptationSet(as, prevID)
 				// Low Latency Adaptation Set
 				if cfg.ChunkDurS != nil {
-					explicitChunkDurS = cfg.ChunkDurS
+					explicitChunkDurS = cfg.ChunkDurS //K caclulation
+					
+					if as.SegmentTemplate != nil {
+						as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
+					}
+					
+					cadence := float64(a.SegmentDurMS) / 1000.0 / *explicitChunkDurS
+					if math.Mod(cadence, 1.0) != 0 {
+						return nil, fmt.Errorf("cadence calculation resulted in non-integer value %v, "+
+							"chunk duration may be incorrectly configured", cadence)
+					}
+					as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
+						SapType: 1,
+						Cadence: uint32(cadence),
+					}
 				}
+
 			}
 		}
 
@@ -322,7 +337,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		}
 		switch templateType {
 		case timeLineTime:
-			err := adjustAdaptationSetForTimelineTime(se, as, ssrNextMap)
+			err := adjustAdaptationSetForTimelineTime(se, as)
 			if err != nil {
 				return nil, fmt.Errorf("adjustASForTimelineTime: %w", err)
 			}
@@ -330,7 +345,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				mpd.PublishTime = m.ConvertToDateTime(calcPublishTime(cfg, se.lsi))
 			}
 		case timeLineNumber:
-			err := adjustAdaptationSetForTimelineNr(se, as, ssrNextMap)
+			err := adjustAdaptationSetForTimelineNr(se, as)
 			if err != nil {
 				return nil, fmt.Errorf("adjustASForTimelineNr: %w", err)
 			}
@@ -338,7 +353,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				mpd.PublishTime = m.ConvertToDateTime(calcPublishTime(cfg, se.lsi))
 			}
 		case segmentNumber:
-			err := adjustAdaptationSetForSegmentNumber(cfg, a, as, ssrNextMap, lowDelayChunkDurMap)
+			err := adjustAdaptationSetForSegmentNumber(cfg, a, as)
 			if err != nil {
 				return nil, fmt.Errorf("adjustASForSegmentNumber: %w", err)
 			}
@@ -419,6 +434,11 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint
 
 	if chunkDur, exists := lowDelayChunkDurMap[*as.Id]; exists {
 		*explicitChunkDurS = &chunkDur
+	}
+
+	// Add SubNumber to SegmentTemplate
+	if as.SegmentTemplate != nil {
+		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
 	}
 }
 
@@ -673,31 +693,25 @@ func setOffsetInAdaptationSet(cfg *ResponseConfig, as *m.AdaptationSetType) (ato
 	return atoMS, nil
 }
 
-func adjustAdaptationSetForTimelineTime(se segEntries, as *m.AdaptationSetType, nextMap map[uint32]uint32) error {
+func adjustAdaptationSetForTimelineTime(se segEntries, as *m.AdaptationSetType) error {
 	if as.SegmentTemplate.SegmentTimeline == nil {
 		as.SegmentTemplate.SegmentTimeline = &m.SegmentTimelineType{}
 	}
 	as.SegmentTemplate.StartNumber = nil
 	as.SegmentTemplate.Duration = nil
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Time$")
-	if isSSRAdaptationSet(as, nextMap) && as.ContentType == "video" {
-		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Time$_$SubNumber$")
-	}
 	as.SegmentTemplate.Timescale = Ptr(se.mediaTimescale)
 	as.SegmentTemplate.SegmentTimeline.S = se.entries
 	return nil
 }
 
-func adjustAdaptationSetForTimelineNr(se segEntries, as *m.AdaptationSetType, nextMap map[uint32]uint32) error {
+func adjustAdaptationSetForTimelineNr(se segEntries, as *m.AdaptationSetType) error {
 	if as.SegmentTemplate.SegmentTimeline == nil {
 		as.SegmentTemplate.SegmentTimeline = &m.SegmentTimelineType{}
 	}
 	as.SegmentTemplate.StartNumber = nil
 	as.SegmentTemplate.Duration = nil
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
-	if isSSRAdaptationSet(as, nextMap) && as.ContentType == "video" {
-		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
-	}
 	as.SegmentTemplate.Timescale = Ptr(se.mediaTimescale)
 	as.SegmentTemplate.SegmentTimeline.S = se.entries
 
@@ -707,7 +721,7 @@ func adjustAdaptationSetForTimelineNr(se segEntries, as *m.AdaptationSetType, ne
 	return nil
 }
 
-func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.AdaptationSetType, nextMap map[uint32]uint32, lowDelayChunkDurMap map[uint32]float64) error {
+func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.AdaptationSetType) error {
 	if as.SegmentTemplate.Duration == nil {
 		r0 := as.Representations[0]
 		rep0 := a.Reps[r0.Id]
@@ -728,13 +742,6 @@ func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.Ad
 		as.SegmentTemplate.StartNumber = startNr
 	}
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
-	if isSSRAdaptationSet(as, nextMap) && as.ContentType == "video" {
-		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
-		if chunkDur, exists := lowDelayChunkDurMap[*as.Id]; exists {
-				as.SegmentTemplate.K = calculateK(
-					uint64(*as.SegmentTemplate.Duration), int(*as.SegmentTemplate.Timescale), &chunkDur)
-			}
-	}
 	return nil
 }
 
@@ -1014,17 +1021,6 @@ func contentTypeFromMimeType(mimeType string) string {
 		return ""
 	}
 }
-
-// isSSRAdaptationSet checks if an AdaptationSet is configured for Low Delay mode
-// by checking if its ID exists in the nextMap.
-func isSSRAdaptationSet(as *m.AdaptationSetType, nextMap map[uint32]uint32) bool {
-	if as.Id == nil || nextMap == nil {
-		return false
-	}
-	_, exists := nextMap[*as.Id]
-	return exists
-}
-
 
 
 // parseLowDelayAdaptationSet parses the lowDelayAdaptationSet configuration once
