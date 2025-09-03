@@ -287,11 +287,8 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 						as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
 					}
 					
-					cadence := float64(a.SegmentDurMS) / 1000.0 / *explicitChunkDurS
-					if math.Mod(cadence, 1.0) != 0 {
-						return nil, fmt.Errorf("cadence calculation resulted in non-integer value %v, "+
-							"chunk duration may be incorrectly configured", cadence)
-					}
+					ep := m.NewDescriptor(SsrSchemeIdUri, "", "")
+					as.EssentialProperties = append(as.EssentialProperties, ep)
 				}
 
 			}
