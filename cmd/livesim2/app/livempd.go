@@ -292,10 +292,6 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 						return nil, fmt.Errorf("cadence calculation resulted in non-integer value %v, "+
 							"chunk duration may be incorrectly configured", cadence)
 					}
-					as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
-						SapType: 1,
-						Cadence: uint32(cadence),
-					}
 				}
 
 			}
