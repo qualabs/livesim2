@@ -287,6 +287,8 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 						as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
 					}
 					
+					as.StartWithSAP = 1
+
 					ep := m.NewDescriptor(SsrSchemeIdUri, "", "")
 					as.EssentialProperties = append(as.EssentialProperties, ep)
 				}
