@@ -534,7 +534,6 @@ func (a *asset) generateTimelineEntries(repID string, wt wrapTimes, atoMS int, e
 			continue
 		}
 		d = seg.dur()
-		k = calculateK(d, rep.MediaTimescale, explicitChunkDurS)
 		s = &m.S{D: d, CommonSegmentSequenceAttributes: m.CommonSegmentSequenceAttributes{K: k}}
 		se.entries = append(se.entries, s)
 		lsi.dur = d
@@ -546,7 +545,7 @@ func (a *asset) generateTimelineEntries(repID string, wt wrapTimes, atoMS int, e
 
 // generateTimelineEntriesFromRef generates timeline entries for the given representation given reference.
 // This is based on sample duration and the type of media.
-func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string) segEntries {
+func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string, explicitChunkDurS *float64) segEntries {
 	rep := a.Reps[repID]
 	nrSegs := 0
 	for _, rs := range refSE.entries {
@@ -571,6 +570,7 @@ func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string) s
 	nextRefT := refT
 	t := calcAudioTimeFromRef(refT, refTimescale, sampleDur, timeScale)
 	var s *m.S
+	var k *uint64
 	for _, rs := range refSE.entries {
 		refD := rs.D
 		for j := 0; j <= rs.R; j++ {
@@ -578,11 +578,13 @@ func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string) s
 			nextT := calcAudioTimeFromRef(nextRefT, refTimescale, sampleDur, timeScale)
 			d := nextT - t
 			if s == nil {
-				s = &m.S{T: m.Ptr(t), D: d}
+				k = calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+				s = &m.S{T: m.Ptr(t), D: d, CommonSegmentSequenceAttributes: m.CommonSegmentSequenceAttributes{K: k}}
 				se.entries = append(se.entries, s)
 			} else {
 				if s.D != d {
-					s = &m.S{D: d}
+					k = calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+					s = &m.S{D: d, CommonSegmentSequenceAttributes: m.CommonSegmentSequenceAttributes{K: k}}
 					se.entries = append(se.entries, s)
 				} else {
 					s.R++

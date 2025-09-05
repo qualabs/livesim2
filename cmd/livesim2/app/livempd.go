@@ -264,7 +264,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				})
 		}
 
-		if cfg.LowDelayFlag && as.ContentType == "video" && as.Id != nil {
+		if cfg.LowDelayFlag && as.Id != nil {
 			prevID, prevIDExists := ssrPrevMap[*as.Id]
 			nextID, nextIDExists := ssrNextMap[*as.Id]
 
@@ -289,8 +289,10 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 					
 					as.StartWithSAP = 1
 
-					ep := m.NewDescriptor(SsrSchemeIdUri, "", "")
-					as.EssentialProperties = append(as.EssentialProperties, ep)
+					if as.ContentType == "video" {
+						ep := m.NewDescriptor(SsrSchemeIdUri, "", "")
+						as.EssentialProperties = append(as.EssentialProperties, ep)
+					}
 				}
 
 			}
@@ -320,7 +322,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 			case "video", "text", "image":
 				se = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
 			case "audio":
-				se = a.generateTimelineEntriesFromRef(refSegEntries, as.Representations[0].Id)
+				se = a.generateTimelineEntriesFromRef(refSegEntries, as.Representations[0].Id, explicitChunkDurS)
 			default:
 				return nil, fmt.Errorf("unknown content type %s", as.ContentType)
 			}
@@ -404,10 +406,10 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 
 func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint32,
 	lowDelayChunkDurMap map[uint32]float64, explicitChunkDurS **float64) {
-	// EssentialProperty schemeIdUri="urn:mpeg:dash:ssr:2023"
-	ssrValue := strconv.FormatUint(uint64(nextID), 10)
-	ep := m.NewDescriptor(SsrSchemeIdUri, ssrValue, "")
-	as.EssentialProperties = append(as.EssentialProperties, ep)
+	// Add SubNumber to SegmentTemplate
+	if as.SegmentTemplate != nil {
+		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
+	}
 
 	// SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016"
 	var switchingValue string
@@ -419,22 +421,24 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint
 	sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, switchingValue, "")
 	as.SupplementalProperties = append(as.SupplementalProperties, sp)
 
-	// Add SegmentSequenceProperties to signal Low-Delay
-	as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
-		SapType: 1,
-		Cadence: 1,
-	}
-
-	// AdaptationSet@startWithSAP = 1
-	as.StartWithSAP = 1
-
 	if chunkDur, exists := lowDelayChunkDurMap[*as.Id]; exists {
 		*explicitChunkDurS = &chunkDur
 	}
 
-	// Add SubNumber to SegmentTemplate
-	if as.SegmentTemplate != nil {
-		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
+	if as.ContentType == "video"{
+		// Add SegmentSequenceProperties to signal Low-Delay
+		as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
+			SapType: 1,
+			Cadence: 1,
+		}
+
+		// AdaptationSet@startWithSAP = 1
+		as.StartWithSAP = 1
+
+		// EssentialProperty schemeIdUri="urn:mpeg:dash:ssr:2023"
+		ssrValue := strconv.FormatUint(uint64(nextID), 10)
+		ep := m.NewDescriptor(SsrSchemeIdUri, ssrValue, "")
+		as.EssentialProperties = append(as.EssentialProperties, ep)
 	}
 }
 

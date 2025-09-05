@@ -531,7 +531,7 @@ func (c *cmafIngester) sendMediaSegments(ctx context.Context, nextSegNr, nowMS i
 				case "video", "text", "image":
 					se = c.asset.generateTimelineEntries(rd.repID, wTimes, atoMS, nil)
 				case "audio":
-					se = c.asset.generateTimelineEntriesFromRef(refSegEntries, rd.repID)
+					se = c.asset.generateTimelineEntriesFromRef(refSegEntries, rd.repID, nil)
 				default:
 					return fmt.Errorf("unknown content type %s", rd.contentType)
 				}

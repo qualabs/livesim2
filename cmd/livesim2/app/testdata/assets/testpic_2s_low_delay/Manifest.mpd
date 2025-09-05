@@ -32,5 +32,11 @@
     <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
    </Representation>
   </AdaptationSet>
+  <AdaptationSet id="4" segmentAlignment="true" mimeType="audio/mp4" startWithSAP="1">
+   <SegmentTemplate media="$RepresentationID$/$Number$.m4s" initialization="$RepresentationID$/init.mp4" timescale="1000" startNumber="1" duration="2000"/>
+   <Representation id="LD_A48" codecs="mp4a.40.2" audioSamplingRate="48000" bandwidth="48000">
+    <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+   </Representation>
+  </AdaptationSet>
  </Period>
 </MPD>
