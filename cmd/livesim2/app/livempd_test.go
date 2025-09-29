@@ -1131,12 +1131,6 @@ func TestParseSSRAS(t *testing.T) {
 			expectedPrev: map[uint32]uint32{2: 1, 4: 3, 6: 5},
 		},
 		{
-			desc:         "with spaces",
-			config:       " 10 , 20 ; 30 , 40 ",
-			expectedNext: map[uint32]uint32{10: 20, 30: 40},
-			expectedPrev: map[uint32]uint32{20: 10, 40: 30},
-		},
-		{
 			desc:         "invalid numbers",
 			config:       "abc,def",
 			expectedNext: make(map[uint32]uint32),
@@ -1187,11 +1181,6 @@ func TestParseChunkDurSSR(t *testing.T) {
 			expected: map[uint32]float64{1: 1.0, 2: 0.1, 3: 2.5},
 		},
 		{
-			desc:     "with spaces",
-			config:   " 10 , 1.5 ; 20 , 0.25 ",
-			expected: map[uint32]float64{10: 1.5, 20: 0.25},
-		},
-		{
 			desc:     "invalid adaptation set id",
 			config:   "abc,1.5",
 			expected: make(map[uint32]float64),
@@ -1233,6 +1222,11 @@ func TestParseSSRAS_ErrorCases(t *testing.T) {
 			config:  "1,2,3",
 			wantErr: "invalid format in pair '1,2,3': expected 'adaptationSetId,ssrValue'",
 		},
+		{
+			desc:    "configuration with extra spaces",
+			config:  " 10 , 20 ; 30 , 40 ",
+			wantErr: "configuration contains extra spaces: use exact format 'adaptationSetId,ssrValue;...' without spaces",
+		},
 	}
 
 	for _, tc := range cases {
@@ -1259,6 +1253,11 @@ func TestParseChunkDurSSR_ErrorCases(t *testing.T) {
 			desc:    "invalid pair format - too many numbers",
 			config:  "1,2,3",
 			wantErr: "invalid format in pair '1,2,3': expected 'adaptationSetId,chunkDuration'",
+		},
+		{
+			desc:    "configuration with extra spaces",
+			config:  " 10 , 1.5 ; 20 , 0.25 ",
+			wantErr: "configuration contains extra spaces: use exact format 'adaptationSetId,chunkDuration;...' without spaces",
 		},
 	}
 

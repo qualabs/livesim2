@@ -23,6 +23,14 @@ const (
 	ProfileAdvancedLinear = "urn:mpeg:dash:profile:advanced-linear:2025"
 )
 
+func hasExtraSpaces(config string) bool {
+	if config != strings.TrimSpace(config) {
+		return true
+	}
+	return strings.Contains(config, " ;") || strings.Contains(config, "; ") ||
+		   strings.Contains(config, " ,") || strings.Contains(config, ", ")
+}
+
 // addAdvancedLinearProfileIfMissing adds the AdvancedLinear profile to the profiles string if it's not already present
 func addAdvancedLinearProfileIfMissing(profiles m.ListOfProfilesType) m.ListOfProfilesType {
 	if strings.Contains(string(profiles), ProfileAdvancedLinear) {
@@ -1042,6 +1050,10 @@ func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32, err error) {
 		return
 	}
 
+	if hasExtraSpaces(config) {
+		return nil, nil, fmt.Errorf("configuration contains extra spaces: use exact format 'adaptationSetId,ssrValue;...' without spaces")
+	}
+
 	pairs := strings.Split(config, ";")
 	for _, pair := range pairs {
 		parts := strings.Split(pair, ",")
@@ -1072,6 +1084,10 @@ func parseChunkDurSSR(config string) (map[uint32]float64, error) {
 
 	if config == "" {
 		return chunkDurMap, nil
+	}
+
+	if hasExtraSpaces(config) {
+		return nil, fmt.Errorf("configuration contains extra spaces: use exact format 'adaptationSetId,chunkDuration;...' without spaces")
 	}
 
 	pairs := strings.Split(config, ";")
