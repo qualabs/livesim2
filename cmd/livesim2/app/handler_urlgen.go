@@ -460,8 +460,8 @@ func validateSSRAS(config string) error {
 		}
 
 		adaptationSetId := strings.TrimSpace(parts[0])
-		if _, err := strconv.Atoi(adaptationSetId); err != nil {
-			return fmt.Errorf("adaptationSetId '%s' must be an integer", adaptationSetId)
+		if id, err := strconv.Atoi(adaptationSetId); err != nil || id < 0 {
+			return fmt.Errorf("adaptationSetId '%s' must be a non-negative integer", adaptationSetId)
 		}
 
 		ssrValue := strings.TrimSpace(parts[1])
@@ -485,8 +485,8 @@ func validateChunkDurSSR(config string) error {
 			return fmt.Errorf("invalid format in pair '%s': expected 'adaptationSetId,chunkDuration'", pair)
 		}
 		adaptationSetId := strings.TrimSpace(parts[0])
-		if _, err := strconv.Atoi(adaptationSetId); err != nil {
-			return fmt.Errorf("adaptationSetId '%s' must be an integer", adaptationSetId)
+		if id, err := strconv.Atoi(adaptationSetId); err != nil || id < 0 {
+			return fmt.Errorf("adaptationSetId '%s' must be a non-negative integer", adaptationSetId)
 		}
 		chunkDuration := strings.TrimSpace(parts[1])
 		if _, err := strconv.ParseFloat(chunkDuration, 64); err != nil {
