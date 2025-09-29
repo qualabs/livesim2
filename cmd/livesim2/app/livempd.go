@@ -23,6 +23,14 @@ const (
 	ProfileAdvancedLinear = "urn:mpeg:dash:profile:advanced-linear:2025"
 )
 
+// addAdvancedLinearProfileIfMissing adds the AdvancedLinear profile to the profiles string if it's not already present
+func addAdvancedLinearProfileIfMissing(profiles m.ListOfProfilesType) m.ListOfProfilesType {
+	if strings.Contains(string(profiles), ProfileAdvancedLinear) {
+		return profiles
+	}
+	return profiles.AddProfile(ProfileAdvancedLinear)
+}
+
 type wrapTimes struct {
 	startWraps  int
 	startWrapMS int
@@ -106,11 +114,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	chunkDurSSRMap := parseChunkDurSSR(cfg.ChunkDurSSR)
 
 	if cfg.SSRFlag {
-		if mpd.Profiles != "" {
-			mpd.Profiles = mpd.Profiles + "," + ProfileAdvancedLinear
-		} else {
-			mpd.Profiles = ProfileAdvancedLinear
-		}
+		mpd.Profiles = addAdvancedLinearProfileIfMissing(mpd.Profiles)
 	}
 
 	if cfg.getAvailabilityTimeOffsetS() > 0 {
