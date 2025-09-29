@@ -1137,18 +1137,6 @@ func TestParseSSRAS(t *testing.T) {
 			expectedPrev: map[uint32]uint32{20: 10, 40: 30},
 		},
 		{
-			desc:         "invalid pair format - only one number",
-			config:       "1",
-			expectedNext: make(map[uint32]uint32),
-			expectedPrev: make(map[uint32]uint32),
-		},
-		{
-			desc:         "invalid pair format - too many numbers",
-			config:       "1,2,3",
-			expectedNext: make(map[uint32]uint32),
-			expectedPrev: make(map[uint32]uint32),
-		},
-		{
 			desc:         "invalid numbers",
 			config:       "abc,def",
 			expectedNext: make(map[uint32]uint32),
@@ -1164,7 +1152,8 @@ func TestParseSSRAS(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			nextMap, prevMap := parseSSRAS(tc.config)
+			nextMap, prevMap, err := parseSSRAS(tc.config)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedNext, nextMap, "nextMap mismatch")
 			assert.Equal(t, tc.expectedPrev, prevMap, "prevMap mismatch")
 		})
@@ -1203,16 +1192,6 @@ func TestParseChunkDurSSR(t *testing.T) {
 			expected: map[uint32]float64{10: 1.5, 20: 0.25},
 		},
 		{
-			desc:     "invalid pair format - only one number",
-			config:   "1",
-			expected: make(map[uint32]float64),
-		},
-		{
-			desc:     "invalid pair format - too many numbers",
-			config:   "1,2,3",
-			expected: make(map[uint32]float64),
-		},
-		{
 			desc:     "invalid adaptation set id",
 			config:   "abc,1.5",
 			expected: make(map[uint32]float64),
@@ -1231,8 +1210,63 @@ func TestParseChunkDurSSR(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			result := parseChunkDurSSR(tc.config)
+			result, err := parseChunkDurSSR(tc.config)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result, "chunk duration map mismatch")
+		})
+	}
+}
+
+func TestParseSSRAS_ErrorCases(t *testing.T) {
+	cases := []struct {
+		desc     string
+		config   string
+		wantErr  string
+	}{
+		{
+			desc:    "invalid pair format - only one number",
+			config:  "1",
+			wantErr: "invalid format in pair '1': expected 'adaptationSetId,ssrValue'",
+		},
+		{
+			desc:    "invalid pair format - too many numbers",
+			config:  "1,2,3",
+			wantErr: "invalid format in pair '1,2,3': expected 'adaptationSetId,ssrValue'",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, _, err := parseSSRAS(tc.config)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+func TestParseChunkDurSSR_ErrorCases(t *testing.T) {
+	cases := []struct {
+		desc     string
+		config   string
+		wantErr  string
+	}{
+		{
+			desc:    "invalid pair format - only one number",
+			config:  "1",
+			wantErr: "invalid format in pair '1': expected 'adaptationSetId,chunkDuration'",
+		},
+		{
+			desc:    "invalid pair format - too many numbers",
+			config:  "1,2,3",
+			wantErr: "invalid format in pair '1,2,3': expected 'adaptationSetId,chunkDuration'",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := parseChunkDurSSR(tc.config)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
 		})
 	}
 }

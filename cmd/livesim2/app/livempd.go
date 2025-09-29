@@ -110,8 +110,14 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	}
 
 	// Parse SSR configuration
-	ssrNextMap, ssrPrevMap := parseSSRAS(cfg.SSRAS)
-	chunkDurSSRMap := parseChunkDurSSR(cfg.ChunkDurSSR)
+	ssrNextMap, ssrPrevMap, err := parseSSRAS(cfg.SSRAS)
+	if err != nil {
+		return nil, fmt.Errorf("parse SSRAS: %w", err)
+	}
+	chunkDurSSRMap, err := parseChunkDurSSR(cfg.ChunkDurSSR)
+	if err != nil {
+		return nil, fmt.Errorf("parse ChunkDurSSR: %w", err)
+	}
 
 	if cfg.SSRFlag {
 		mpd.Profiles = addAdvancedLinearProfileIfMissing(mpd.Profiles)
@@ -1028,7 +1034,7 @@ func contentTypeFromMimeType(mimeType string) string {
 
 // parseSSRAS parses the ssrAS configuration once
 // and returns maps for next and previous adaptation set relationships.
-func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32) {
+func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32, err error) {
 	nextMap = make(map[uint32]uint32)
 	prevMap = make(map[uint32]uint32)
 
@@ -1039,18 +1045,19 @@ func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32) {
 	pairs := strings.Split(config, ";")
 	for _, pair := range pairs {
 		parts := strings.Split(pair, ",")
-		if len(parts) == 2 {
-			adaptationSetIDStr := strings.TrimSpace(parts[0])
-			ssrValueStr := strings.TrimSpace(parts[1])
+		if len(parts) != 2 {
+			return nil, nil, fmt.Errorf("invalid format in pair '%s': expected 'adaptationSetId,ssrValue'", pair)
+		}
+		adaptationSetIDStr := strings.TrimSpace(parts[0])
+		ssrValueStr := strings.TrimSpace(parts[1])
 
-			if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
-				if ssrValue, err := strconv.ParseUint(ssrValueStr, 10, 32); err == nil {
-					adaptationSetID32 := uint32(adaptationSetID)
-					ssrValue32 := uint32(ssrValue)
+		if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
+			if ssrValue, err := strconv.ParseUint(ssrValueStr, 10, 32); err == nil {
+				adaptationSetID32 := uint32(adaptationSetID)
+				ssrValue32 := uint32(ssrValue)
 
-					nextMap[adaptationSetID32] = ssrValue32
-					prevMap[ssrValue32] = adaptationSetID32
-				}
+				nextMap[adaptationSetID32] = ssrValue32
+				prevMap[ssrValue32] = adaptationSetID32
 			}
 		}
 	}
@@ -1060,27 +1067,28 @@ func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32) {
 
 // parseChunkDurSSR parses the ChunkDurSSR configuration
 // and returns a map where the key is adaptationSetId and value is chunkDuration in seconds.
-func parseChunkDurSSR(config string) map[uint32]float64 {
+func parseChunkDurSSR(config string) (map[uint32]float64, error) {
 	chunkDurMap := make(map[uint32]float64)
 
 	if config == "" {
-		return chunkDurMap
+		return chunkDurMap, nil
 	}
 
 	pairs := strings.Split(config, ";")
 	for _, pair := range pairs {
 		parts := strings.Split(pair, ",")
-		if len(parts) == 2 {
-			adaptationSetIDStr := strings.TrimSpace(parts[0])
-			chunkDurationStr := strings.TrimSpace(parts[1])
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid format in pair '%s': expected 'adaptationSetId,chunkDuration'", pair)
+		}
+		adaptationSetIDStr := strings.TrimSpace(parts[0])
+		chunkDurationStr := strings.TrimSpace(parts[1])
 
-			if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
-				if chunkDuration, err := strconv.ParseFloat(chunkDurationStr, 64); err == nil {
-					chunkDurMap[uint32(adaptationSetID)] = chunkDuration
-				}
+		if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
+			if chunkDuration, err := strconv.ParseFloat(chunkDurationStr, 64); err == nil {
+				chunkDurMap[uint32(adaptationSetID)] = chunkDuration
 			}
 		}
 	}
 
-	return chunkDurMap
+	return chunkDurMap, nil
 }
