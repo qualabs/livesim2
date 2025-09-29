@@ -143,7 +143,7 @@ type urlGenData struct {
 	ChunkDur                    string // chunk duration (float in seconds)
 	LlTarget                    int    // low-latency target (in milliseconds)
 	SSRASConfig                 string // low delay Adaptation Set configuration (adaptationSetId,ssrValue;...)
-	LowDelayChunkDur            string // low delay chunk duration (float in seconds)
+	ChunkDurSSR                 string // low delay chunk duration (float in seconds)
 	TimeSubsStpp                string // languages for generated subtitles in stpp-format (comma-separated)
 	TimeSubsWvtt                string // languages for generated subtitles in wvtt-format (comma-separated)
 	TimeSubsDur                 string // cue duration of generated subtitles (in milliseconds)
@@ -411,13 +411,13 @@ func createURL(r *http.Request, aInfo assetsInfo, drmCfg *drm.DrmConfig) urlGenD
 			sb.WriteString(fmt.Sprintf("ssras_%s/", ssrAS))
 		}
 	}
-	lowDelayChunkDur := q.Get("lowDelayChunkDur")
-	if lowDelayChunkDur != "" {
-		if err := validateLowDelayChunkDur(lowDelayChunkDur); err != nil {
-			data.Errors = append(data.Errors, fmt.Sprintf("invalid lowDelayChunkDur: %s", err.Error()))
+	chunkDurSSR := q.Get("chunkDurSSR")
+	if chunkDurSSR != "" {
+		if err := validateChunkDurSSR(chunkDurSSR); err != nil {
+			data.Errors = append(data.Errors, fmt.Sprintf("invalid chunkDurSSR: %s", err.Error()))
 		} else {
-			data.LowDelayChunkDur = lowDelayChunkDur
-			sb.WriteString(fmt.Sprintf("lowdelaychunkduration_%s/", lowDelayChunkDur))
+			data.ChunkDurSSR = chunkDurSSR
+			sb.WriteString(fmt.Sprintf("chunkdurssr_%s/", chunkDurSSR))
 		}
 	}
 
@@ -472,9 +472,9 @@ func validateSSRAS(config string) error {
 	return nil
 }
 
-// validateLowDelayChunkDur validates the format adaptationSetId,chunkDuration;adaptationSetId,chunkDuration;...
+// validateChunkDurSSR validates the format adaptationSetId,chunkDuration;adaptationSetId,chunkDuration;...
 // where adaptationSetId must be an integer and chunkDuration must be a decimal number in seconds (e.g., 1, 0.1)
-func validateLowDelayChunkDur(config string) error {
+func validateChunkDurSSR(config string) error {
 	if config == "" {
 		return nil
 	}

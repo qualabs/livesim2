@@ -695,7 +695,7 @@ type RepData struct {
 	DefaultSampleDuration  uint32           `json:"defaultSampleDuration"`            // Read from trex or tfhd
 	ConstantSampleDuration *uint32          `json:"constantSampleDuration,omitempty"` // Non-zero if all samples have the same duration
 	PreEncrypted           bool             `json:"preEncrypted"`
-	LowDelayChunkDurS      *float64         `json:"lowDelayChunkDurS,omitempty"`      // Low delay chunk duration in seconds
+	ChunkDurSSRS           *float64         `json:"chunkDurSSRS,omitempty"` // Low delay chunk duration in seconds
 	mediaRegexp            *regexp.Regexp   `json:"-"`
 	initSeg                *mp4.InitSegment `json:"-"`
 	initBytes              []byte           `json:"-"`

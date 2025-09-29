@@ -27,7 +27,7 @@ const (
 	defaultReqIntervalS             = 24 * 3600
 	defaultAvailabilityStartTimeS   = 0
 	defaultAvailabilityTimeComplete = true
-	defaultLowDelayFlag 			= false
+	defaultSSRFlag                  = false
 	defaultTimeShiftBufferDepthS    = 60
 	defaultStartNr                  = 0
 	timeShiftBufferDepthMarginS     = 10

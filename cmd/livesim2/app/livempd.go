@@ -103,9 +103,9 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 
 	// Parse SSR configuration
 	ssrNextMap, ssrPrevMap := parseSSRAS(cfg.SSRAS)
-	lowDelayChunkDurMap := parseLowDelayChunkDuration(cfg.LowDelayChunkDur)
+	chunkDurSSRMap := parseChunkDurSSR(cfg.ChunkDurSSR)
 
-	if cfg.LowDelayFlag {
+	if cfg.SSRFlag {
 		if mpd.Profiles != "" {
 			mpd.Profiles = mpd.Profiles + "," + ProfileAdvancedLinear
 		} else {
@@ -264,7 +264,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				})
 		}
 
-		if cfg.LowDelayFlag && as.Id != nil {
+		if cfg.SSRFlag && as.Id != nil {
 			prevID, prevIDExists := ssrPrevMap[*as.Id]
 			nextID, nextIDExists := ssrNextMap[*as.Id]
 
@@ -275,7 +275,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 
 			if nextIDExists {
 				//Low Delay Adaptation Set
-				updateSSRAdaptationSet(as, nextID, prevIDPtr, lowDelayChunkDurMap, &explicitChunkDurS)
+				updateSSRAdaptationSet(as, nextID, prevIDPtr, chunkDurSSRMap, &explicitChunkDurS)
 			} else if prevIDExists {
 				// Regular Adaptation Set for switching
 				updateSwitchingAdaptationSet(as, prevID)
@@ -298,12 +298,12 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 			}
 		}
 
-		// Update RepData with LowDelayChunkDur if configured
+		// Update RepData with ChunkDurSSR if configured
 		if explicitChunkDurS != nil {
 			// Update all representations of this adaptation set
 			for _, rep := range as.Representations {
 				if repData, exists := a.Reps[rep.Id]; exists {
-					repData.LowDelayChunkDurS = explicitChunkDurS
+					repData.ChunkDurSSRS = explicitChunkDurS
 				}
 			}
 		}
@@ -405,7 +405,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 }
 
 func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint32,
-	lowDelayChunkDurMap map[uint32]float64, explicitChunkDurS **float64) {
+	chunkDurSSRMap map[uint32]float64, explicitChunkDurS **float64) {
 	// Add SubNumber to SegmentTemplate
 	if as.SegmentTemplate != nil {
 		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
@@ -421,11 +421,11 @@ func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint
 	sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, switchingValue, "")
 	as.SupplementalProperties = append(as.SupplementalProperties, sp)
 
-	if chunkDur, exists := lowDelayChunkDurMap[*as.Id]; exists {
+	if chunkDur, exists := chunkDurSSRMap[*as.Id]; exists {
 		*explicitChunkDurS = &chunkDur
 	}
 
-	if as.ContentType == "video"{
+	if as.ContentType == "video" {
 		// Add SegmentSequenceProperties to signal Low-Delay
 		as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
 			SapType: 1,
@@ -1054,9 +1054,9 @@ func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32) {
 	return
 }
 
-// parseLowDelayChunkDuration parses the LowDelayChunkDur configuration
+// parseChunkDurSSR parses the ChunkDurSSR configuration
 // and returns a map where the key is adaptationSetId and value is chunkDuration in seconds.
-func parseLowDelayChunkDuration(config string) map[uint32]float64 {
+func parseChunkDurSSR(config string) map[uint32]float64 {
 	chunkDurMap := make(map[uint32]float64)
 
 	if config == "" {

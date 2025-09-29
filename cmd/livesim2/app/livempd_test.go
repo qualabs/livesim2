@@ -1171,7 +1171,7 @@ func TestParseSSRAS(t *testing.T) {
 	}
 }
 
-func TestParseLowDelayChunkDuration(t *testing.T) {
+func TestParseChunkDurSSR(t *testing.T) {
 	cases := []struct {
 		desc     string
 		config   string
@@ -1231,7 +1231,7 @@ func TestParseLowDelayChunkDuration(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			result := parseLowDelayChunkDuration(tc.config)
+			result := parseChunkDurSSR(tc.config)
 			assert.Equal(t, tc.expected, result, "chunk duration map mismatch")
 		})
 	}
@@ -1352,7 +1352,7 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 			originalSPCount := len(tc.as.SupplementalProperties)
 
 			var explicitChunkDurS *float64
-			lowDelayChunkDurMap := make(map[uint32]float64)
+			chunkDurSSRMap := make(map[uint32]float64)
 
 			if tc.as.Id != nil && tc.as.ContentType == "video" {
 				nextID, nextExists := tc.nextMap[*tc.as.Id]
@@ -1361,7 +1361,7 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 					if prevID, prevExists := tc.prevMap[*tc.as.Id]; prevExists {
 						prevIDPtr = &prevID
 					}
-					updateSSRAdaptationSet(tc.as, nextID, prevIDPtr, lowDelayChunkDurMap, &explicitChunkDurS)
+					updateSSRAdaptationSet(tc.as, nextID, prevIDPtr, chunkDurSSRMap, &explicitChunkDurS)
 				}
 			}
 

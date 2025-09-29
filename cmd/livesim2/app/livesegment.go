@@ -667,9 +667,9 @@ func prepareChunks(log *slog.Logger, vodFS fs.FS, a *asset, cfg *ResponseConfig,
 
 	// Calculate chunk duration in media timescale units
 	var chunkDur int
-	if rep.LowDelayChunkDurS != nil && *rep.LowDelayChunkDurS > 0 {
+	if rep.ChunkDurSSRS != nil && *rep.ChunkDurSSRS > 0 {
 		// Use low delay chunk duration from adaptation set configuration
-		chunkDur = int(*rep.LowDelayChunkDurS * float64(rep.MediaTimescale))
+		chunkDur = int(*rep.ChunkDurSSRS * float64(rep.MediaTimescale))
 	} else if cfg.ChunkDurS != nil && *cfg.ChunkDurS > 0 {
 		// Use explicit chunk duration from URL parameter
 		chunkDur = int(*cfg.ChunkDurS * float64(rep.MediaTimescale))
