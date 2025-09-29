@@ -102,9 +102,9 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	}
 
 	// Parse SSR configuration
-	ssrNextMap, ssrPrevMap := parseLowDelayAdaptationSet(cfg.LowDelayAdaptationSet)
+	ssrNextMap, ssrPrevMap := parseSSRAS(cfg.SSRAS)
 	lowDelayChunkDurMap := parseLowDelayChunkDuration(cfg.LowDelayChunkDur)
-	
+
 	if cfg.LowDelayFlag {
 		if mpd.Profiles != "" {
 			mpd.Profiles = mpd.Profiles + "," + ProfileAdvancedLinear
@@ -282,11 +282,11 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				// Low Latency Adaptation Set
 				if cfg.ChunkDurS != nil {
 					explicitChunkDurS = cfg.ChunkDurS //K caclulation
-					
+
 					if as.SegmentTemplate != nil {
 						as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
 					}
-					
+
 					as.StartWithSAP = 1
 
 					if as.ContentType == "video" {
@@ -1022,36 +1022,35 @@ func contentTypeFromMimeType(mimeType string) string {
 	}
 }
 
-
-// parseLowDelayAdaptationSet parses the lowDelayAdaptationSet configuration once
+// parseSSRAS parses the ssrAS configuration once
 // and returns maps for next and previous adaptation set relationships.
-func parseLowDelayAdaptationSet(config string) (nextMap, prevMap map[uint32]uint32) {
+func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32) {
 	nextMap = make(map[uint32]uint32)
 	prevMap = make(map[uint32]uint32)
-	
+
 	if config == "" {
 		return
 	}
-	
+
 	pairs := strings.Split(config, ";")
 	for _, pair := range pairs {
 		parts := strings.Split(pair, ",")
 		if len(parts) == 2 {
 			adaptationSetIDStr := strings.TrimSpace(parts[0])
 			ssrValueStr := strings.TrimSpace(parts[1])
-			
+
 			if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
 				if ssrValue, err := strconv.ParseUint(ssrValueStr, 10, 32); err == nil {
 					adaptationSetID32 := uint32(adaptationSetID)
 					ssrValue32 := uint32(ssrValue)
-					
+
 					nextMap[adaptationSetID32] = ssrValue32
 					prevMap[ssrValue32] = adaptationSetID32
 				}
 			}
 		}
 	}
-	
+
 	return
 }
 
@@ -1059,18 +1058,18 @@ func parseLowDelayAdaptationSet(config string) (nextMap, prevMap map[uint32]uint
 // and returns a map where the key is adaptationSetId and value is chunkDuration in seconds.
 func parseLowDelayChunkDuration(config string) map[uint32]float64 {
 	chunkDurMap := make(map[uint32]float64)
-	
+
 	if config == "" {
 		return chunkDurMap
 	}
-	
+
 	pairs := strings.Split(config, ";")
 	for _, pair := range pairs {
 		parts := strings.Split(pair, ",")
 		if len(parts) == 2 {
 			adaptationSetIDStr := strings.TrimSpace(parts[0])
 			chunkDurationStr := strings.TrimSpace(parts[1])
-			
+
 			if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
 				if chunkDuration, err := strconv.ParseFloat(chunkDurationStr, 64); err == nil {
 					chunkDurMap[uint32(adaptationSetID)] = chunkDuration
@@ -1078,6 +1077,6 @@ func parseLowDelayChunkDuration(config string) map[uint32]float64 {
 			}
 		}
 	}
-	
+
 	return chunkDurMap
 }

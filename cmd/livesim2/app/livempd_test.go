@@ -1105,58 +1105,58 @@ func TestGenerateTimelineEntries(t *testing.T) {
 	}
 }
 
-func TestParseLowDelayAdaptationSet(t *testing.T) {
+func TestParseSSRAS(t *testing.T) {
 	cases := []struct {
-		desc        string
-		config      string
+		desc         string
+		config       string
 		expectedNext map[uint32]uint32
 		expectedPrev map[uint32]uint32
 	}{
 		{
-			desc:        "empty config",
-			config:      "",
+			desc:         "empty config",
+			config:       "",
 			expectedNext: make(map[uint32]uint32),
 			expectedPrev: make(map[uint32]uint32),
 		},
 		{
-			desc:        "single pair",
-			config:      "1,2",
+			desc:         "single pair",
+			config:       "1,2",
 			expectedNext: map[uint32]uint32{1: 2},
 			expectedPrev: map[uint32]uint32{2: 1},
 		},
 		{
-			desc:        "multiple pairs",
-			config:      "1,2;3,4;5,6",
+			desc:         "multiple pairs",
+			config:       "1,2;3,4;5,6",
 			expectedNext: map[uint32]uint32{1: 2, 3: 4, 5: 6},
 			expectedPrev: map[uint32]uint32{2: 1, 4: 3, 6: 5},
 		},
 		{
-			desc:        "with spaces",
-			config:      " 10 , 20 ; 30 , 40 ",
+			desc:         "with spaces",
+			config:       " 10 , 20 ; 30 , 40 ",
 			expectedNext: map[uint32]uint32{10: 20, 30: 40},
 			expectedPrev: map[uint32]uint32{20: 10, 40: 30},
 		},
 		{
-			desc:        "invalid pair format - only one number",
-			config:      "1",
+			desc:         "invalid pair format - only one number",
+			config:       "1",
 			expectedNext: make(map[uint32]uint32),
 			expectedPrev: make(map[uint32]uint32),
 		},
 		{
-			desc:        "invalid pair format - too many numbers",
-			config:      "1,2,3",
+			desc:         "invalid pair format - too many numbers",
+			config:       "1,2,3",
 			expectedNext: make(map[uint32]uint32),
 			expectedPrev: make(map[uint32]uint32),
 		},
 		{
-			desc:        "invalid numbers",
-			config:      "abc,def",
+			desc:         "invalid numbers",
+			config:       "abc,def",
 			expectedNext: make(map[uint32]uint32),
 			expectedPrev: make(map[uint32]uint32),
 		},
 		{
-			desc:        "mixed valid and invalid pairs",
-			config:      "1,2;invalid,pair;3,4",
+			desc:         "mixed valid and invalid pairs",
+			config:       "1,2;invalid,pair;3,4",
 			expectedNext: map[uint32]uint32{1: 2, 3: 4},
 			expectedPrev: map[uint32]uint32{2: 1, 4: 3},
 		},
@@ -1164,7 +1164,7 @@ func TestParseLowDelayAdaptationSet(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			nextMap, prevMap := parseLowDelayAdaptationSet(tc.config)
+			nextMap, prevMap := parseSSRAS(tc.config)
 			assert.Equal(t, tc.expectedNext, nextMap, "nextMap mismatch")
 			assert.Equal(t, tc.expectedPrev, prevMap, "prevMap mismatch")
 		})
@@ -1237,19 +1237,18 @@ func TestParseLowDelayChunkDuration(t *testing.T) {
 	}
 }
 
-
 func TestUpdateSSRAdaptationSet(t *testing.T) {
 	cases := []struct {
-		desc                         string
-		as                           *m.AdaptationSetType
-		nextMap                      map[uint32]uint32
-		prevMap                      map[uint32]uint32
-		expectEssentialProperty      bool
-		expectedSSRValue             string
-		expectSupplementalProperty   bool
-		expectedSwitchingValue       string
-		expectSegmentSequenceProps   bool
-		expectStartWithSAP           bool
+		desc                       string
+		as                         *m.AdaptationSetType
+		nextMap                    map[uint32]uint32
+		prevMap                    map[uint32]uint32
+		expectEssentialProperty    bool
+		expectedSSRValue           string
+		expectSupplementalProperty bool
+		expectedSwitchingValue     string
+		expectSegmentSequenceProps bool
+		expectStartWithSAP         bool
 	}{
 		{
 			desc: "video adaptation set with SSR configuration",
@@ -1257,14 +1256,14 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 				Id:          Ptr(uint32(2)),
 				ContentType: "video",
 			},
-			nextMap:                      map[uint32]uint32{1: 2, 2: 3},
-			prevMap:                      map[uint32]uint32{2: 1, 3: 2},
-			expectEssentialProperty:      true,
-			expectedSSRValue:             "3",
-			expectSupplementalProperty:   true,
-			expectedSwitchingValue:       "3,1",
-			expectSegmentSequenceProps:   true,
-			expectStartWithSAP:           true,
+			nextMap:                    map[uint32]uint32{1: 2, 2: 3},
+			prevMap:                    map[uint32]uint32{2: 1, 3: 2},
+			expectEssentialProperty:    true,
+			expectedSSRValue:           "3",
+			expectSupplementalProperty: true,
+			expectedSwitchingValue:     "3,1",
+			expectSegmentSequenceProps: true,
+			expectStartWithSAP:         true,
 		},
 		{
 			desc: "video adaptation set not in nextMap",
@@ -1272,12 +1271,12 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 				Id:          Ptr(uint32(3)),
 				ContentType: "video",
 			},
-			nextMap:                      map[uint32]uint32{1: 2},
-			prevMap:                      map[uint32]uint32{2: 1},
-			expectEssentialProperty:      false,
-			expectSupplementalProperty:   false,
-			expectSegmentSequenceProps:   false,
-			expectStartWithSAP:           false,
+			nextMap:                    map[uint32]uint32{1: 2},
+			prevMap:                    map[uint32]uint32{2: 1},
+			expectEssentialProperty:    false,
+			expectSupplementalProperty: false,
+			expectSegmentSequenceProps: false,
+			expectStartWithSAP:         false,
 		},
 		{
 			desc: "audio adaptation set (should not be processed)",
@@ -1285,24 +1284,24 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 				Id:          Ptr(uint32(1)),
 				ContentType: "audio",
 			},
-			nextMap:                      map[uint32]uint32{1: 2},
-			prevMap:                      map[uint32]uint32{2: 1},
-			expectEssentialProperty:      false,
-			expectSupplementalProperty:   false,
-			expectSegmentSequenceProps:   false,
-			expectStartWithSAP:           false,
+			nextMap:                    map[uint32]uint32{1: 2},
+			prevMap:                    map[uint32]uint32{2: 1},
+			expectEssentialProperty:    false,
+			expectSupplementalProperty: false,
+			expectSegmentSequenceProps: false,
+			expectStartWithSAP:         false,
 		},
 		{
 			desc: "adaptation set with nil ID",
 			as: &m.AdaptationSetType{
 				ContentType: "video",
 			},
-			nextMap:                      map[uint32]uint32{1: 2},
-			prevMap:                      map[uint32]uint32{2: 1},
-			expectEssentialProperty:      false,
-			expectSupplementalProperty:   false,
-			expectSegmentSequenceProps:   false,
-			expectStartWithSAP:           false,
+			nextMap:                    map[uint32]uint32{1: 2},
+			prevMap:                    map[uint32]uint32{2: 1},
+			expectEssentialProperty:    false,
+			expectSupplementalProperty: false,
+			expectSegmentSequenceProps: false,
+			expectStartWithSAP:         false,
 		},
 		{
 			desc: "video adaptation set with switching value but no prev",
@@ -1310,14 +1309,14 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 				Id:          Ptr(uint32(1)),
 				ContentType: "video",
 			},
-			nextMap:                      map[uint32]uint32{1: 2},
-			prevMap:                      map[uint32]uint32{3: 4},
-			expectEssentialProperty:      true,
-			expectedSSRValue:             "2",
-			expectSupplementalProperty:   true,
-			expectedSwitchingValue:       "2",
-			expectSegmentSequenceProps:   true,
-			expectStartWithSAP:           true,
+			nextMap:                    map[uint32]uint32{1: 2},
+			prevMap:                    map[uint32]uint32{3: 4},
+			expectEssentialProperty:    true,
+			expectedSSRValue:           "2",
+			expectSupplementalProperty: true,
+			expectedSwitchingValue:     "2",
+			expectSegmentSequenceProps: true,
+			expectStartWithSAP:         true,
 		},
 		{
 			desc: "video adaptation set with existing properties",
@@ -1327,23 +1326,23 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 					ContentType: "video",
 				}
 				as.EssentialProperties = append(as.EssentialProperties, &m.DescriptorType{
-					SchemeIdUri: "existing-scheme", 
-					Value: "existing-value",
+					SchemeIdUri: "existing-scheme",
+					Value:       "existing-value",
 				})
 				as.SupplementalProperties = append(as.SupplementalProperties, &m.DescriptorType{
-					SchemeIdUri: "existing-supplemental", 
-					Value: "existing-value",
+					SchemeIdUri: "existing-supplemental",
+					Value:       "existing-value",
 				})
 				return as
 			}(),
-			nextMap:                      map[uint32]uint32{1: 2, 2: 3},
-			prevMap:                      map[uint32]uint32{2: 1, 3: 2},
-			expectEssentialProperty:      true,
-			expectedSSRValue:             "3",
-			expectSupplementalProperty:   true,
-			expectedSwitchingValue:       "3,1",
-			expectSegmentSequenceProps:   true,
-			expectStartWithSAP:           true,
+			nextMap:                    map[uint32]uint32{1: 2, 2: 3},
+			prevMap:                    map[uint32]uint32{2: 1, 3: 2},
+			expectEssentialProperty:    true,
+			expectedSSRValue:           "3",
+			expectSupplementalProperty: true,
+			expectedSwitchingValue:     "3,1",
+			expectSegmentSequenceProps: true,
+			expectStartWithSAP:         true,
 		},
 	}
 
@@ -1354,7 +1353,7 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 
 			var explicitChunkDurS *float64
 			lowDelayChunkDurMap := make(map[uint32]float64)
-			
+
 			if tc.as.Id != nil && tc.as.ContentType == "video" {
 				nextID, nextExists := tc.nextMap[*tc.as.Id]
 				if nextExists {

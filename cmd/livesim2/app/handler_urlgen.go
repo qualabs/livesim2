@@ -142,7 +142,7 @@ type urlGenData struct {
 	Ato                         string // availabilityTimeOffset, floating point seconds or "inf"
 	ChunkDur                    string // chunk duration (float in seconds)
 	LlTarget                    int    // low-latency target (in milliseconds)
-	LowDelayAdaptationSetConfig string // low delay Adaptation Set configuration (adaptationSetId,ssrValue;...)
+	SSRASConfig                 string // low delay Adaptation Set configuration (adaptationSetId,ssrValue;...)
 	LowDelayChunkDur            string // low delay chunk duration (float in seconds)
 	TimeSubsStpp                string // languages for generated subtitles in stpp-format (comma-separated)
 	TimeSubsWvtt                string // languages for generated subtitles in wvtt-format (comma-separated)
@@ -402,13 +402,13 @@ func createURL(r *http.Request, aInfo assetsInfo, drmCfg *drm.DrmConfig) urlGenD
 		data.Traffic = traffic
 		sb.WriteString(fmt.Sprintf("traffic_%s/", traffic))
 	}
-	lowDelayAdaptationSet := q.Get("lowDelayAdaptationSet")
-	if lowDelayAdaptationSet != "" {
-		if err := validateLowDelayAdaptationSet(lowDelayAdaptationSet); err != nil {
-			data.Errors = append(data.Errors, fmt.Sprintf("invalid lowDelayAdaptationSet: %s", err.Error()))
+	ssrAS := q.Get("ssrAS")
+	if ssrAS != "" {
+		if err := validateSSRAS(ssrAS); err != nil {
+			data.Errors = append(data.Errors, fmt.Sprintf("invalid ssrAS: %s", err.Error()))
 		} else {
-			data.LowDelayAdaptationSetConfig = lowDelayAdaptationSet
-			sb.WriteString(fmt.Sprintf("lowdelayadaptationset_%s/", lowDelayAdaptationSet))
+			data.SSRASConfig = ssrAS
+			sb.WriteString(fmt.Sprintf("ssras_%s/", ssrAS))
 		}
 	}
 	lowDelayChunkDur := q.Get("lowDelayChunkDur")
@@ -445,25 +445,25 @@ func createURL(r *http.Request, aInfo assetsInfo, drmCfg *drm.DrmConfig) urlGenD
 	return data
 }
 
-// validateLowDelayAdaptationSet validates the format adaptationSetId,ssrValue;adaptationSetId,ssrValue;...
+// validateSSRAS validates the format adaptationSetId,ssrValue;adaptationSetId,ssrValue;...
 // where both adaptationSetId and ssrValue must be integers
-func validateLowDelayAdaptationSet(config string) error {
+func validateSSRAS(config string) error {
 	if config == "" {
 		return nil
 	}
-	
+
 	pairs := strings.Split(config, ";")
 	for _, pair := range pairs {
 		parts := strings.Split(pair, ",")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid format in pair '%s': expected 'adaptationSetId,ssrValue'", pair)
 		}
-		
+
 		adaptationSetId := strings.TrimSpace(parts[0])
 		if _, err := strconv.Atoi(adaptationSetId); err != nil {
 			return fmt.Errorf("adaptationSetId '%s' must be an integer", adaptationSetId)
 		}
-		
+
 		ssrValue := strings.TrimSpace(parts[1])
 		if _, err := strconv.Atoi(ssrValue); err != nil {
 			return fmt.Errorf("ssrValue '%s' must be an integer", ssrValue)
