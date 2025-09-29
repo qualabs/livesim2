@@ -285,7 +285,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				updateSwitchingAdaptationSet(as, prevID)
 				// Low Latency Adaptation Set
 				if cfg.ChunkDurS != nil {
-					explicitChunkDurS = cfg.ChunkDurS //K caclulation
+					explicitChunkDurS = cfg.ChunkDurS //K calculation
 
 					if as.SegmentTemplate != nil {
 						as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
