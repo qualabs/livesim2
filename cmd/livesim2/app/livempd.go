@@ -1055,12 +1055,12 @@ func contentTypeFromMimeType(mimeType string) string {
 // parseSSRAS parses the ssrAS configuration once
 // and returns maps for next and previous adaptation set relationships.
 func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32, err error) {
+	if config == "" {
+		return nil, nil, nil
+	}
+
 	nextMap = make(map[uint32]uint32)
 	prevMap = make(map[uint32]uint32)
-
-	if config == "" {
-		return
-	}
 
 	if hasExtraSpaces(config) {
 		return nil, nil, fmt.Errorf("configuration contains extra spaces: use exact format 'adaptationSetId,ssrValue;...' without spaces")
@@ -1075,15 +1075,21 @@ func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32, err error) {
 		adaptationSetIDStr := strings.TrimSpace(parts[0])
 		ssrValueStr := strings.TrimSpace(parts[1])
 
-		if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
-			if ssrValue, err := strconv.ParseUint(ssrValueStr, 10, 32); err == nil {
-				adaptationSetID32 := uint32(adaptationSetID)
-				ssrValue32 := uint32(ssrValue)
-
-				nextMap[adaptationSetID32] = ssrValue32
-				prevMap[ssrValue32] = adaptationSetID32
-			}
+		adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid adaptationSetId '%s' in pair '%s': must be a valid unsigned integer", adaptationSetIDStr, pair)
 		}
+
+		ssrValue, err := strconv.ParseUint(ssrValueStr, 10, 32)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid ssrValue '%s' in pair '%s': must be a valid unsigned integer", ssrValueStr, pair)
+		}
+
+		adaptationSetID32 := uint32(adaptationSetID)
+		ssrValue32 := uint32(ssrValue)
+
+		nextMap[adaptationSetID32] = ssrValue32
+		prevMap[ssrValue32] = adaptationSetID32
 	}
 
 	return
@@ -1092,16 +1098,15 @@ func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32, err error) {
 // parseChunkDurSSR parses the ChunkDurSSR configuration
 // and returns a map where the key is adaptationSetId and value is chunkDuration in seconds.
 func parseChunkDurSSR(config string) (map[uint32]float64, error) {
-	chunkDurMap := make(map[uint32]float64)
-
 	if config == "" {
-		return chunkDurMap, nil
+		return nil, nil
 	}
 
 	if hasExtraSpaces(config) {
 		return nil, fmt.Errorf("configuration contains extra spaces: use exact format 'adaptationSetId,chunkDuration;...' without spaces")
 	}
 
+	chunkDurMap := make(map[uint32]float64)
 	pairs := strings.Split(config, ";")
 	for _, pair := range pairs {
 		parts := strings.Split(pair, ",")
@@ -1111,11 +1116,17 @@ func parseChunkDurSSR(config string) (map[uint32]float64, error) {
 		adaptationSetIDStr := strings.TrimSpace(parts[0])
 		chunkDurationStr := strings.TrimSpace(parts[1])
 
-		if adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32); err == nil {
-			if chunkDuration, err := strconv.ParseFloat(chunkDurationStr, 64); err == nil {
-				chunkDurMap[uint32(adaptationSetID)] = chunkDuration
-			}
+		adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid adaptationSetId '%s' in pair '%s': must be a valid unsigned integer", adaptationSetIDStr, pair)
 		}
+
+		chunkDuration, err := strconv.ParseFloat(chunkDurationStr, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid chunkDuration '%s' in pair '%s': must be a valid number", chunkDurationStr, pair)
+		}
+
+		chunkDurMap[uint32(adaptationSetID)] = chunkDuration
 	}
 
 	return chunkDurMap, nil

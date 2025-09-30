@@ -1110,7 +1110,7 @@ func TestGenerateTimelineEntries(t *testing.T) {
 }
 
 func TestParseSSRAS(t *testing.T) {
-	cases := []struct {
+	successCases := []struct {
 		desc         string
 		config       string
 		expectedNext map[uint32]uint32
@@ -1119,8 +1119,8 @@ func TestParseSSRAS(t *testing.T) {
 		{
 			desc:         "empty config",
 			config:       "",
-			expectedNext: make(map[uint32]uint32),
-			expectedPrev: make(map[uint32]uint32),
+			expectedNext: nil,
+			expectedPrev: nil,
 		},
 		{
 			desc:         "single pair",
@@ -1134,21 +1134,9 @@ func TestParseSSRAS(t *testing.T) {
 			expectedNext: map[uint32]uint32{1: 2, 3: 4, 5: 6},
 			expectedPrev: map[uint32]uint32{2: 1, 4: 3, 6: 5},
 		},
-		{
-			desc:         "invalid numbers",
-			config:       "abc,def",
-			expectedNext: make(map[uint32]uint32),
-			expectedPrev: make(map[uint32]uint32),
-		},
-		{
-			desc:         "mixed valid and invalid pairs",
-			config:       "1,2;invalid,pair;3,4",
-			expectedNext: map[uint32]uint32{1: 2, 3: 4},
-			expectedPrev: map[uint32]uint32{2: 1, 4: 3},
-		},
 	}
 
-	for _, tc := range cases {
+	for _, tc := range successCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			nextMap, prevMap, err := parseSSRAS(tc.config)
 			assert.NoError(t, err)
@@ -1156,10 +1144,69 @@ func TestParseSSRAS(t *testing.T) {
 			assert.Equal(t, tc.expectedPrev, prevMap, "prevMap mismatch")
 		})
 	}
+
+	errorCases := []struct {
+		desc   string
+		config string
+	}{
+		{
+			desc:   "extra spaces around semicolon",
+			config: "1,2 ; 3,4",
+		},
+		{
+			desc:   "extra spaces around comma",
+			config: "1 , 2;3,4",
+		},
+		{
+			desc:   "leading spaces",
+			config: " 1,2;3,4",
+		},
+		{
+			desc:   "trailing spaces",
+			config: "1,2;3,4 ",
+		},
+		{
+			desc:   "invalid format - single value",
+			config: "1",
+		},
+		{
+			desc:   "invalid format - three values",
+			config: "1,2,3",
+		},
+		{
+			desc:   "invalid format - empty pair",
+			config: "1,2;;3,4",
+		},
+		{
+			desc:   "invalid adaptation set ID",
+			config: "abc,2",
+		},
+		{
+			desc:   "invalid SSR value",
+			config: "1,def",
+		},
+		{
+			desc:   "both values invalid",
+			config: "abc,def",
+		},
+		{
+			desc:   "mixed valid and invalid pairs",
+			config: "1,2;invalid,pair;3,4",
+		},
+	}
+
+	for _, tc := range errorCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			nextMap, prevMap, err := parseSSRAS(tc.config)
+			assert.Error(t, err)
+			assert.Nil(t, nextMap)
+			assert.Nil(t, prevMap)
+		})
+	}
 }
 
 func TestParseChunkDurSSR(t *testing.T) {
-	cases := []struct {
+	successCases := []struct {
 		desc     string
 		config   string
 		expected map[uint32]float64
@@ -1167,7 +1214,7 @@ func TestParseChunkDurSSR(t *testing.T) {
 		{
 			desc:     "empty config",
 			config:   "",
-			expected: make(map[uint32]float64),
+			expected: nil,
 		},
 		{
 			desc:     "single pair with integer duration",
@@ -1184,28 +1231,77 @@ func TestParseChunkDurSSR(t *testing.T) {
 			config:   "1,1.0;2,0.1;3,2.5",
 			expected: map[uint32]float64{1: 1.0, 2: 0.1, 3: 2.5},
 		},
-		{
-			desc:     "invalid adaptation set id",
-			config:   "abc,1.5",
-			expected: make(map[uint32]float64),
-		},
-		{
-			desc:     "invalid chunk duration",
-			config:   "1,abc",
-			expected: make(map[uint32]float64),
-		},
-		{
-			desc:     "mixed valid and invalid pairs",
-			config:   "1,1.0;invalid,pair;3,0.5",
-			expected: map[uint32]float64{1: 1.0, 3: 0.5},
-		},
 	}
 
-	for _, tc := range cases {
+	for _, tc := range successCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			result, err := parseChunkDurSSR(tc.config)
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expected, result, "chunk duration map mismatch")
+
+			// Handle nil maps more robustly
+			if tc.expected == nil {
+				assert.Nil(t, result, "result should be nil for empty config")
+			} else {
+				assert.Equal(t, tc.expected, result, "chunk duration map mismatch")
+			}
+		})
+	}
+
+	errorCases := []struct {
+		desc   string
+		config string
+	}{
+		{
+			desc:   "extra spaces around semicolon",
+			config: "1,1.0 ; 2,2.0",
+		},
+		{
+			desc:   "extra spaces around comma",
+			config: "1 , 1.0;2,2.0",
+		},
+		{
+			desc:   "leading spaces",
+			config: " 1,1.0;2,2.0",
+		},
+		{
+			desc:   "trailing spaces",
+			config: "1,1.0;2,2.0 ",
+		},
+		{
+			desc:   "invalid format - single value",
+			config: "1",
+		},
+		{
+			desc:   "invalid format - three values",
+			config: "1,2.0,3",
+		},
+		{
+			desc:   "invalid format - empty pair",
+			config: "1,1.0;;2,2.0",
+		},
+		{
+			desc:   "invalid adaptation set ID",
+			config: "abc,1.5",
+		},
+		{
+			desc:   "invalid chunk duration",
+			config: "1,abc",
+		},
+		{
+			desc:   "both values invalid",
+			config: "abc,def",
+		},
+		{
+			desc:   "mixed valid and invalid pairs",
+			config: "1,1.0;invalid,pair;3,0.5",
+		},
+	}
+
+	for _, tc := range errorCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			result, err := parseChunkDurSSR(tc.config)
+			assert.Error(t, err)
+			assert.Nil(t, result)
 		})
 	}
 }
