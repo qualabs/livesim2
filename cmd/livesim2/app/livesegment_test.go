@@ -254,6 +254,8 @@ func TestWriteChunkedSegment(t *testing.T) {
 	cfg := NewResponseConfig()
 	cfg.AvailabilityTimeCompleteFlag = false
 	cfg.AvailabilityTimeOffsetS = 7.0
+	chunkDur := 1.0
+	cfg.ChunkDurS = &chunkDur
 	err = logging.InitSlog("debug", "discard")
 	require.NoError(t, err)
 
