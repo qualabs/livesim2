@@ -359,7 +359,8 @@ func TestLastAvailableSegment(t *testing.T) {
 				} else {
 					require.NoError(t, err)
 					r := as.Representations[0] // Assume that any representation will be fine inside AS
-					se := asset.generateTimelineEntries(r.Id, wTimes, atoMS, nil)
+					se, err := asset.generateTimelineEntries(r.Id, wTimes, atoMS, nil)
+					require.NoError(t, err)
 					assert.Equal(t, tc.wantedSegNr, se.lsi.nr)
 				}
 			}
@@ -1064,6 +1065,7 @@ func TestGenerateTimelineEntries(t *testing.T) {
 		expectedLsiNr          int
 		expectedMediaTimescale uint32
 		expectedEntries        []*m.S
+		expectedError          string
 	}{
 		{
 			desc:                   "With chunkDuration of 0.5s expecting S@k=4",
@@ -1079,24 +1081,26 @@ func TestGenerateTimelineEntries(t *testing.T) {
 			},
 		},
 		{
-			desc:                   "With chunkDuration of 2.1s expecting S@k=1 (nil)",
-			reID:                   "V300",
-			wt:                     wrapTimes{startRelMS: 0, nowRelMS: 7000, startWraps: 0, nowWraps: 0},
-			atoMS:                  0,
-			chunkDur:               Ptr(2.1),
-			expectedStartNr:        0,
-			expectedLsiNr:          2,
-			expectedMediaTimescale: 90000,
-			expectedEntries: []*m.S{
-				{T: Ptr(uint64(0)), D: 180000, R: 2, CommonSegmentSequenceAttributes: m.CommonSegmentSequenceAttributes{K: nil}},
-			},
+			desc:          "With chunkDuration of 2.1s expecting error (chunk duration >= segment duration)",
+			reID:          "V300",
+			wt:            wrapTimes{startRelMS: 0, nowRelMS: 7000, startWraps: 0, nowWraps: 0},
+			atoMS:         0,
+			chunkDur:      Ptr(2.1),
+			expectedError: "chunk duration 2.10s must be less than or equal to segment duration 2.00s",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			se := asset.generateTimelineEntries(tc.reID, tc.wt, tc.atoMS, tc.chunkDur)
+			se, err := asset.generateTimelineEntries(tc.reID, tc.wt, tc.atoMS, tc.chunkDur)
 
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Equal(t, tc.expectedError, err.Error())
+				return
+			}
+
+			require.NoError(t, err)
 			assert.Equal(t, tc.expectedStartNr, se.startNr, "startNr mismatch")
 			assert.Equal(t, tc.expectedLsiNr, se.lsi.nr, "last segment info (nr) mismatch")
 			assert.Equal(t, tc.expectedMediaTimescale, se.mediaTimescale, "mediaTimescale mismatch")

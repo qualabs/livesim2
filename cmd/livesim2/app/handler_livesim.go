@@ -409,7 +409,11 @@ func calcStatusCode(cfg *ResponseConfig, a *asset, segmentPart string, nowMS int
 
 func findLastSegNr(cfg *ResponseConfig, a *asset, nowMS int, rep *RepData) int {
 	wTimes := calcWrapTimes(a, cfg, nowMS, mpd.Duration(60*time.Second))
-	timeLineEntries := a.generateTimelineEntries(rep.ID, wTimes, 0, nil)
+	timeLineEntries, err := a.generateTimelineEntries(rep.ID, wTimes, 0, nil)
+	if err != nil {
+		// This should not happen with nil chunk duration, but handle gracefully
+		return -1
+	}
 	return timeLineEntries.lastNr()
 }
 

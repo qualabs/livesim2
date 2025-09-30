@@ -447,24 +447,31 @@ func (l lastSegInfo) availabilityTime(ato float64) float64 {
 	return math.Round(float64(l.startTime+l.dur)/float64(l.timescale)) - ato
 }
 
-func calculateK(segmentDuration uint64, mediaTimescale int, chunkDurS *float64) *uint64 {
+func calculateK(segmentDuration uint64, mediaTimescale int, chunkDurS *float64) (*uint64, error) {
 	if chunkDurS == nil || *chunkDurS <= 0 {
-		return nil
+		return nil, nil
 	}
 	chunkDurInTimescale := *chunkDurS * float64(mediaTimescale)
 	if chunkDurInTimescale <= 0 {
-		return nil
+		return nil, nil
 	}
+
+	// Validate that chunk duration is not greater than segment duration
+	segmentDurS := float64(segmentDuration) / float64(mediaTimescale)
+	if *chunkDurS > segmentDurS {
+		return nil, fmt.Errorf("chunk duration %.2fs must be less than or equal to segment duration %.2fs", *chunkDurS, segmentDurS)
+	}
+
 	kVal := uint64(math.Round(float64(segmentDuration) / chunkDurInTimescale))
 	if kVal > 1 {
-		return &kVal
+		return &kVal, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // generateTimelineEntries generates timeline entries for the given representation.
 // If no segments are available, startNr and lsi.nr are set to -1.
-func (a *asset) generateTimelineEntries(repID string, wt wrapTimes, atoMS int, explicitChunkDurS *float64) segEntries {
+func (a *asset) generateTimelineEntries(repID string, wt wrapTimes, atoMS int, explicitChunkDurS *float64) (segEntries, error) {
 	rep := a.Reps[repID]
 	segs := rep.Segments
 	nrSegs := len(segs)
@@ -506,7 +513,7 @@ func (a *asset) generateTimelineEntries(repID string, wt wrapTimes, atoMS int, e
 	if wt.nowWraps < 0 { // no segment finished yet. Return an empty list and set startNr and lsi.nr = -1
 		se.startNr = -1
 		se.lsi.nr = -1
-		return se
+		return se, nil
 	}
 
 	se.startNr = wt.startWraps*nrSegs + relStartIdx
@@ -514,7 +521,10 @@ func (a *asset) generateTimelineEntries(repID string, wt wrapTimes, atoMS int, e
 	t := uint64(rep.duration()*wt.startWraps) + segs[relStartIdx].StartTime
 	d := segs[relStartIdx].dur()
 
-	k := calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+	k, err := calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+	if err != nil {
+		return se, err
+	}
 
 	s := &m.S{T: Ptr(t), D: d, CommonSegmentSequenceAttributes: m.CommonSegmentSequenceAttributes{K: k}}
 	lsi := lastSegInfo{
@@ -540,12 +550,12 @@ func (a *asset) generateTimelineEntries(repID string, wt wrapTimes, atoMS int, e
 		lsi.nr = nr
 	}
 	se.lsi = lsi
-	return se
+	return se, nil
 }
 
 // generateTimelineEntriesFromRef generates timeline entries for the given representation given reference.
 // This is based on sample duration and the type of media.
-func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string, explicitChunkDurS *float64) segEntries {
+func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string, explicitChunkDurS *float64) (segEntries, error) {
 	rep := a.Reps[repID]
 	nrSegs := 0
 	for _, rs := range refSE.entries {
@@ -559,7 +569,7 @@ func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string, e
 	}
 
 	if refSE.startNr < 0 {
-		return se
+		return se, nil
 	}
 
 	sampleDur := uint64(rep.sampleDur())
@@ -578,12 +588,20 @@ func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string, e
 			nextT := calcAudioTimeFromRef(nextRefT, refTimescale, sampleDur, timeScale)
 			d := nextT - t
 			if s == nil {
-				k = calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+				var err error
+				k, err = calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+				if err != nil {
+					return se, err
+				}
 				s = &m.S{T: m.Ptr(t), D: d, CommonSegmentSequenceAttributes: m.CommonSegmentSequenceAttributes{K: k}}
 				se.entries = append(se.entries, s)
 			} else {
 				if s.D != d {
-					k = calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+					var err error
+					k, err = calculateK(d, rep.MediaTimescale, explicitChunkDurS)
+					if err != nil {
+						return se, err
+					}
 					s = &m.S{D: d, CommonSegmentSequenceAttributes: m.CommonSegmentSequenceAttributes{K: k}}
 					se.entries = append(se.entries, s)
 				} else {
@@ -593,7 +611,7 @@ func (a *asset) generateTimelineEntriesFromRef(refSE segEntries, repID string, e
 			t = nextT
 		}
 	}
-	return se
+	return se, nil
 }
 
 func (a *asset) setReferenceRep() error {

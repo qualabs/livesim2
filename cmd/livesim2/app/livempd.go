@@ -333,14 +333,26 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		var se segEntries
 		if asIdx == 0 {
 			// Assume that first representation is as good as any, so can be reference
-			refSegEntries = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+			var err error
+			refSegEntries, err = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+			if err != nil {
+				return nil, err
+			}
 			se = refSegEntries
 		} else {
 			switch as.ContentType {
 			case "video", "text", "image":
-				se = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+				var err error
+				se, err = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+				if err != nil {
+					return nil, err
+				}
 			case "audio":
-				se = a.generateTimelineEntriesFromRef(refSegEntries, as.Representations[0].Id, explicitChunkDurS)
+				var err error
+				se, err = a.generateTimelineEntriesFromRef(refSegEntries, as.Representations[0].Id, explicitChunkDurS)
+				if err != nil {
+					return nil, err
+				}
 			default:
 				return nil, fmt.Errorf("unknown content type %s", as.ContentType)
 			}

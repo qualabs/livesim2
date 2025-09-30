@@ -151,6 +151,7 @@ func TestCalculateK(t *testing.T) {
 		mediaTimescale  int
 		chunkDuration   *float64
 		expectedK       *uint64
+		expectedError   string
 	}{
 		{
 			description:     "nil chunk duration",
@@ -208,11 +209,28 @@ func TestCalculateK(t *testing.T) {
 			chunkDuration:   Ptr(0.58), // 3.448... -> 3
 			expectedK:       Ptr(uint64(3)),
 		},
+		{
+			description:     "chunk duration greater than segment duration",
+			segmentDuration: 192000,
+			mediaTimescale:  96000,
+			chunkDuration:   Ptr(2.5), // 2.5s > 2.0s segment duration
+			expectedK:       nil,
+			expectedError:   "chunk duration 2.50s must be less than or equal to segment duration 2.00s",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			gotK := calculateK(tc.segmentDuration, tc.mediaTimescale, tc.chunkDuration)
+			gotK, err := calculateK(tc.segmentDuration, tc.mediaTimescale, tc.chunkDuration)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Equal(t, tc.expectedError, err.Error())
+				require.Nil(t, gotK)
+				return
+			}
+
+			require.NoError(t, err)
 			if tc.expectedK == nil {
 				require.Nil(t, gotK)
 			} else {
