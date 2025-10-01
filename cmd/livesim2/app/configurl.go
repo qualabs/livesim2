@@ -458,6 +458,10 @@ func verifyAndFillConfig(cfg *ResponseConfig, nowMS int) error {
 	}
 	// We do not check here that the drm is one that has been configured,
 	// since pre-encrypted content will influence what is valid.
+	
+	if cfg.ChunkDurSSR != "" && cfg.SSRAS == "" {
+		return fmt.Errorf("chunkDurSSR requires ssrAS to be configured")
+	}
 	return nil
 }
 
