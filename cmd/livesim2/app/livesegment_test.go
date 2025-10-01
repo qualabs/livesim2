@@ -755,7 +755,7 @@ func TestWriteSubSegment(t *testing.T) {
 			asset:                   "testpic_8s",
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "0",
-			nowMS:                   86_000,
+			nowMS:                   88_000,
 			expSeqNr:                10,
 		},
 		{
@@ -763,7 +763,7 @@ func TestWriteSubSegment(t *testing.T) {
 			asset:                   "testpic_8s",
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "7",
-			nowMS:                   86_000,
+			nowMS:                   88_000,
 			expSeqNr:                10,
 		},
 		{
@@ -771,7 +771,7 @@ func TestWriteSubSegment(t *testing.T) {
 			asset:                   "testpic_8s",
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "1",
-			nowMS:                   87_000,
+			nowMS:                   88_000,
 			expSeqNr:                10,
 		},
 		{
@@ -803,7 +803,7 @@ func TestWriteSubSegment(t *testing.T) {
 			asset:                   "testpic_8s",
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "9",
-			nowMS:                   86_000,
+			nowMS:                   88_000,
 			expErr:                  "chunk 9 not found",
 		},
 	}
@@ -813,8 +813,9 @@ func TestWriteSubSegment(t *testing.T) {
 			require.True(t, ok)
 
 			cfg := NewResponseConfig()
-			cfg.AvailabilityTimeCompleteFlag = false
 			cfg.SSRAS = "1,2"
+			cfg.ChunkDurSSR = "1,1.0"
+			cfg.ChunkDurS = Ptr(1.0)
 
 			rr := httptest.NewRecorder()
 			ctx := context.Background()
