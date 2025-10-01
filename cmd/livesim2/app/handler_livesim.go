@@ -332,8 +332,12 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 
 		return 0, writeSubSegment(ctx, log, w, cfg, drmCfg, vodFS, a, newSegmentPart, subSegmentPart, nowMS, isLast)
 	}
-	// Chunked low-latency mode
-	return 0, writeChunkedSegment(ctx, log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, isLast)
+	// Only use chunked mode if chunk duration is explicitly configured
+	if cfg.ChunkDurS != nil {
+		return 0, writeChunkedSegment(ctx, log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, isLast)
+	}
+	// Default to non-chunked
+	return 0, writeLiveSegment(log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, tt, isLast)
 }
 
 var subSegmentRegex = regexp.MustCompile(`^(.*)_(\d+)$`)
