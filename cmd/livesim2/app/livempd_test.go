@@ -1540,6 +1540,9 @@ func TestUpdateSSRAdaptationSet(t *testing.T) {
 				assert.Equal(t, uint32(0), tc.as.StartWithSAP)
 			}
 		})
+	}
+}
+
 // TestEditListOffsetMPD tests that editListOffset affects MPD SegmentTimeline $Time$ values
 func TestEditListOffsetMPD(t *testing.T) {
 	vodFS := os.DirFS("testdata/assets")
@@ -1585,10 +1588,12 @@ func TestEditListOffsetMPD(t *testing.T) {
 
 		// Generate timeline entries for reference (video)
 		videoAS := mpd.Periods[0].AdaptationSets[0] // First should be video
-		refSE := asset.generateTimelineEntries(videoAS.Representations[0].Id, wTimes, atoMS)
+		refSE, err := asset.generateTimelineEntries(videoAS.Representations[0].Id, wTimes, atoMS, nil)
+		require.NoError(t, err)
 
 		// Generate timeline entries for audio using reference
-		audioSE := asset.generateTimelineEntriesFromRef(refSE, "aac")
+		audioSE, err := asset.generateTimelineEntriesFromRef(refSE, "aac", nil)
+		require.NoError(t, err)
 		require.Greater(t, len(audioSE.entries), 0, "Should have audio segments")
 
 		firstSegTime := *audioSE.entries[0].T
@@ -1619,10 +1624,12 @@ func TestEditListOffsetMPD(t *testing.T) {
 
 		// Generate timeline entries for reference (video)
 		videoAS := mpd.Periods[0].AdaptationSets[0] // First should be video
-		refSE := asset.generateTimelineEntries(videoAS.Representations[0].Id, wTimes, atoMS)
+		refSE, err := asset.generateTimelineEntries(videoAS.Representations[0].Id, wTimes, atoMS, nil)
+		require.NoError(t, err)
 
 		// Generate timeline entries for audio using reference
-		audioSE := asset.generateTimelineEntriesFromRef(refSE, "aac")
+		audioSE, err := asset.generateTimelineEntriesFromRef(refSE, "aac", nil)
+		require.NoError(t, err)
 		require.Greater(t, len(audioSE.entries), 0, "Should have audio segments")
 
 		firstSegTime := *audioSE.entries[0].T
