@@ -747,7 +747,6 @@ func TestWriteSubSegment(t *testing.T) {
 		expSeqNr                uint32
 		expErr                  string
 		shouldPanic             bool
-		availabilityTimeOffsetS float64
 	}{
 		{
 			desc:                    "first video sub-segment (8s)",
@@ -756,7 +755,6 @@ func TestWriteSubSegment(t *testing.T) {
 			subSegmentPart:          "0",
 			nowMS:                   86_000,
 			expSeqNr:                10,
-			availabilityTimeOffsetS: 7.0,
 		},
 		{
 			desc:                    "last video sub-segment (8s)",
@@ -765,7 +763,6 @@ func TestWriteSubSegment(t *testing.T) {
 			subSegmentPart:          "7",
 			nowMS:                   86_000,
 			expSeqNr:                10,
-			availabilityTimeOffsetS: 7.0,
 		},
 		{
 			desc:                    "valid sub-segment (8s segment)",
@@ -773,7 +770,6 @@ func TestWriteSubSegment(t *testing.T) {
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "1",
 			nowMS:                   87_000,
-			availabilityTimeOffsetS: 1.0,
 			expSeqNr:                10,
 		},
 		{
@@ -782,7 +778,6 @@ func TestWriteSubSegment(t *testing.T) {
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "1",
 			nowMS:                   79_000,
-			availabilityTimeOffsetS: 7.0,
 			expErr:                  "createOutSeg: too early by",
 		},
 		{
@@ -791,7 +786,6 @@ func TestWriteSubSegment(t *testing.T) {
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "1",
 			nowMS:                   400_000,
-			availabilityTimeOffsetS: 7.0,
 			expErr:                  "createOutSeg: gone",
 		},
 		{
@@ -800,7 +794,6 @@ func TestWriteSubSegment(t *testing.T) {
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "abc",
 			nowMS:                   86_000,
-			availabilityTimeOffsetS: 7.0,
 			expErr:                  "bad chunk index: strconv.Atoi: parsing \"abc\": invalid syntax",
 		},
 		{
@@ -809,7 +802,6 @@ func TestWriteSubSegment(t *testing.T) {
 			media:                   "V300/10.m4s",
 			subSegmentPart:          "9",
 			nowMS:                   86_000,
-			availabilityTimeOffsetS: 7.0,
 			expErr:                  "chunk 9 not found",
 		},
 	}
@@ -821,7 +813,6 @@ func TestWriteSubSegment(t *testing.T) {
 			cfg := NewResponseConfig()
 			cfg.AvailabilityTimeCompleteFlag = false
 			cfg.SSRAS = "1,2"
-			cfg.AvailabilityTimeOffsetS = tc.availabilityTimeOffsetS
 
 			rr := httptest.NewRecorder()
 			ctx := context.Background()
