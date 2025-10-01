@@ -333,7 +333,7 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 		return 0, writeLiveSegment(log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, tt, isLast)
 	}
 	// Only use chunked mode if chunk duration is explicitly configured
-	if cfg.ChunkDurS != nil || cfg.ChunkDurSSR != "" {
+	if cfg.ChunkDurS != nil {
 		return 0, writeChunkedSegment(ctx, log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, isLast)
 	}
 	// Default to non-chunked
