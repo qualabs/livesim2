@@ -326,7 +326,7 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 		if err != nil {
 			return 0, err
 		}
-		
+
 		return 0, writeSubSegment(ctx, log, w, cfg, drmCfg, vodFS, a, newSegmentPart, subSegmentPart, nowMS, isLast)
 	}
 	if cfg.AvailabilityTimeCompleteFlag {
