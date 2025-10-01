@@ -316,9 +316,6 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 			return code, nil
 		}
 	}
-	if cfg.AvailabilityTimeCompleteFlag {
-		return 0, writeLiveSegment(log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, tt, isLast)
-	}
 	if cfg.SSRFlag {
 		// Sub segment part (SSR/L3D) low-delay mode should return each subSegment as a separated response
 		newSegmentPart, subSegmentPart, err := calcSubSegmentPart(segmentPart)
@@ -331,6 +328,9 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 		}
 
 		return 0, writeSubSegment(ctx, log, w, cfg, drmCfg, vodFS, a, newSegmentPart, subSegmentPart, nowMS, isLast)
+	}
+	if cfg.AvailabilityTimeCompleteFlag {
+		return 0, writeLiveSegment(log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, tt, isLast)
 	}
 	// Only use chunked mode if chunk duration is explicitly configured
 	if cfg.ChunkDurS != nil {

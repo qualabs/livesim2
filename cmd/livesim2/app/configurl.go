@@ -405,7 +405,6 @@ cfgLoop:
 			cfg.SSRFlag = true
 		case "chunkdurssr":
 			cfg.ChunkDurSSR = val
-			cfg.AvailabilityTimeCompleteFlag = false
 		default:
 			contentStartIdx = i
 			break cfgLoop
