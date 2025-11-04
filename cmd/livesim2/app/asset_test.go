@@ -28,6 +28,7 @@ type wantedRepData struct {
 	mpdTimescale   int // SegmentTemplate timescale
 	mediaTimescale int
 	duration       int
+	editListOffset int64 // Offset of the elst box in the init segment
 }
 
 func TestLoadAsset(t *testing.T) {
@@ -39,6 +40,31 @@ func TestLoadAsset(t *testing.T) {
 		ad           wantedAssetData
 		rds          map[string]wantedRepData
 	}{
+		{
+			desc:      "CTA-Wave AAC with editlist",
+			assetPath: "assets/WAVE/av",
+			ad: wantedAssetData{
+				nrReps:         2,
+				loopDurationMS: 8000,
+			},
+			rds: map[string]wantedRepData{
+				"video25fps": {
+					nrSegs:         4,
+					initURI:        "video25fps/init.mp4",
+					mpdTimescale:   12_800,
+					mediaTimescale: 12_800,
+					duration:       102_400,
+				},
+				"aac": {
+					nrSegs:         5, // To get longer duration than video
+					initURI:        "aac/init.mp4",
+					mpdTimescale:   48_000,
+					mediaTimescale: 48_000,
+					duration:       476160, // 9.92s which is fine since longer than video
+					editListOffset: 2048,
+				},
+			},
+		},
 		{
 			desc:         "testpic_2s",
 			assetPath:    "assets/testpic_2s",
@@ -116,17 +142,18 @@ func TestLoadAsset(t *testing.T) {
 				asset, ok := am.findAsset(tc.assetPath)
 				require.True(t, ok)
 				require.NotNil(t, asset)
-				require.Equal(t, tc.ad.nrReps, len(asset.Reps))
+				require.Equal(t, tc.ad.nrReps, len(asset.Reps), "nr reps in asset %s", asset.AssetPath)
 				require.Equal(t, tc.ad.loopDurationMS, asset.LoopDurMS)
 				for repID, wrd := range tc.rds {
 					rep, ok := asset.Reps[repID]
-					require.True(t, ok)
+					require.True(t, ok, "repID %s not found in asset %s", repID, asset.AssetPath)
 					require.NotNil(t, rep)
-					require.Equal(t, wrd.nrSegs, len(rep.Segments))
+					require.Equal(t, wrd.nrSegs, len(rep.Segments), "repID %s in asset %s", repID, asset.AssetPath)
 					require.Equal(t, wrd.initURI, rep.InitURI)
-					require.Equal(t, wrd.mpdTimescale, rep.MpdTimescale)
-					require.Equal(t, wrd.mediaTimescale, rep.MediaTimescale)
+					require.Equal(t, wrd.mpdTimescale, rep.MpdTimescale, "repID %s in asset %s", repID, asset.AssetPath)
+					require.Equal(t, wrd.mediaTimescale, rep.MediaTimescale, "repID %s in asset %s", repID, asset.AssetPath)
 					require.Equal(t, wrd.duration, rep.duration())
+					require.Equal(t, wrd.editListOffset, rep.EditListOffset)
 				}
 			}
 		})
@@ -151,6 +178,7 @@ func TestCalculateK(t *testing.T) {
 		mediaTimescale  int
 		chunkDuration   *float64
 		expectedK       *uint64
+		expectedError   string
 	}{
 		{
 			description:     "nil chunk duration",
@@ -208,11 +236,28 @@ func TestCalculateK(t *testing.T) {
 			chunkDuration:   Ptr(0.58), // 3.448... -> 3
 			expectedK:       Ptr(uint64(3)),
 		},
+		{
+			description:     "chunk duration greater than segment duration",
+			segmentDuration: 192000,
+			mediaTimescale:  96000,
+			chunkDuration:   Ptr(2.5), // 2.5s > 2.0s segment duration
+			expectedK:       nil,
+			expectedError:   "chunk duration 2.50s must be less than or equal to segment duration 2.00s",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			gotK := calculateK(tc.segmentDuration, tc.mediaTimescale, tc.chunkDuration)
+			gotK, err := calculateK(tc.segmentDuration, tc.mediaTimescale, tc.chunkDuration)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Equal(t, tc.expectedError, err.Error())
+				require.Nil(t, gotK)
+				return
+			}
+
+			require.NoError(t, err)
 			if tc.expectedK == nil {
 				require.Nil(t, gotK)
 			} else {

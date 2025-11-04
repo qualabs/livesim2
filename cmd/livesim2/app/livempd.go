@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,22 @@ import (
 const (
 	ProfileAdvancedLinear = "urn:mpeg:dash:profile:advanced-linear:2025"
 )
+
+func hasExtraSpaces(config string) bool {
+	if config != strings.TrimSpace(config) {
+		return true
+	}
+	return strings.Contains(config, " ;") || strings.Contains(config, "; ") ||
+		   strings.Contains(config, " ,") || strings.Contains(config, ", ")
+}
+
+// addAdvancedLinearProfileIfMissing adds the AdvancedLinear profile to the profiles string if it's not already present
+func addAdvancedLinearProfileIfMissing(profiles m.ListOfProfilesType) m.ListOfProfilesType {
+	if strings.Contains(string(profiles), ProfileAdvancedLinear) {
+		return profiles
+	}
+	return profiles.AddProfile(ProfileAdvancedLinear)
+}
 
 type wrapTimes struct {
 	startWraps  int
@@ -100,12 +117,18 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		}
 	}
 
-	if cfg.EnableSSR {
-		if mpd.Profiles != "" {
-			mpd.Profiles = mpd.Profiles + "," + ProfileAdvancedLinear
-		} else {
-			mpd.Profiles = ProfileAdvancedLinear
-		}
+	// Parse SSR configuration
+	ssrNextMap, ssrPrevMap, err := parseSSRAS(cfg.SSRAS)
+	if err != nil {
+		return nil, fmt.Errorf("parse SSRAS: %w", err)
+	}
+	chunkDurSSRMap, err := parseChunkDurSSR(cfg.ChunkDurSSR)
+	if err != nil {
+		return nil, fmt.Errorf("parse ChunkDurSSR: %w", err)
+	}
+
+	if cfg.SSRFlag {
+		mpd.Profiles = addAdvancedLinearProfileIfMissing(mpd.Profiles)
 	}
 
 	if cfg.getAvailabilityTimeOffsetS() > 0 {
@@ -259,20 +282,48 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				})
 		}
 
-		if as.ContentType == "video" && cfg.EnableSSR {
-			// EssentialProperty schemeIdUri="urn:mpeg:dash:ssr:2023"
-			ep := m.NewDescriptor(SsrSchemeIdUri, "", "")
-			as.EssentialProperties = append(as.EssentialProperties, ep)
+		if cfg.SSRFlag && as.Id != nil {
+			prevID, prevIDExists := ssrPrevMap[*as.Id]
+			nextID, nextIDExists := ssrNextMap[*as.Id]
 
-			// Add SegmentSequenceProperties to signal Low-Delay
-			as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
-				SapType: 1,
-				Cadence: 1,
+			var prevIDPtr *uint32
+			if prevIDExists {
+				prevIDPtr = &prevID
 			}
 
-			// AdaptationSet@startWithSAP = 1
-			as.StartWithSAP = 1
-			explicitChunkDurS = cfg.ChunkDurS
+			if nextIDExists {
+				//Low Delay Adaptation Set
+				updateSSRAdaptationSet(as, nextID, prevIDPtr, chunkDurSSRMap, &explicitChunkDurS)
+			} else if prevIDExists {
+				// Regular Adaptation Set for switching
+				updateSwitchingAdaptationSet(as, prevID)
+				// Low Latency Adaptation Set
+				if cfg.ChunkDurS != nil {
+					explicitChunkDurS = cfg.ChunkDurS //K calculation
+
+					if as.SegmentTemplate != nil {
+						as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
+					}
+
+					as.StartWithSAP = 1
+
+					if as.ContentType == "video" {
+						ep := m.NewDescriptor(SsrSchemeIdUri, "", "")
+						as.EssentialProperties = append(as.EssentialProperties, ep)
+					}
+				}
+
+			}
+		}
+
+		// Update RepData with ChunkDurSSR if configured
+		if explicitChunkDurS != nil {
+			// Update all representations of this adaptation set
+			for _, rep := range as.Representations {
+				if repData, exists := a.Reps[rep.Id]; exists {
+					repData.ChunkDurSSRS = explicitChunkDurS
+				}
+			}
 		}
 
 		atoMS, err := setOffsetInAdaptationSet(cfg, as)
@@ -282,14 +333,26 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		var se segEntries
 		if asIdx == 0 {
 			// Assume that first representation is as good as any, so can be reference
-			refSegEntries = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+			var err error
+			refSegEntries, err = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+			if err != nil {
+				return nil, err
+			}
 			se = refSegEntries
 		} else {
 			switch as.ContentType {
 			case "video", "text", "image":
-				se = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+				var err error
+				se, err = a.generateTimelineEntries(as.Representations[0].Id, wTimes, atoMS, explicitChunkDurS)
+				if err != nil {
+					return nil, err
+				}
 			case "audio":
-				se = a.generateTimelineEntriesFromRef(refSegEntries, as.Representations[0].Id)
+				var err error
+				se, err = a.generateTimelineEntriesFromRef(refSegEntries, as.Representations[0].Id, explicitChunkDurS)
+				if err != nil {
+					return nil, err
+				}
 			default:
 				return nil, fmt.Errorf("unknown content type %s", as.ContentType)
 			}
@@ -301,7 +364,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 		}
 		switch templateType {
 		case timeLineTime:
-			err := adjustAdaptationSetForTimelineTime(se, as, cfg)
+			err := adjustAdaptationSetForTimelineTime(se, as)
 			if err != nil {
 				return nil, fmt.Errorf("adjustASForTimelineTime: %w", err)
 			}
@@ -309,7 +372,7 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 				mpd.PublishTime = m.ConvertToDateTime(calcPublishTime(cfg, se.lsi))
 			}
 		case timeLineNumber:
-			err := adjustAdaptationSetForTimelineNr(se, as, cfg)
+			err := adjustAdaptationSetForTimelineNr(se, as)
 			if err != nil {
 				return nil, fmt.Errorf("adjustASForTimelineNr: %w", err)
 			}
@@ -369,6 +432,49 @@ func LiveMPD(a *asset, mpdName string, cfg *ResponseConfig, drmCfg *drm.DrmConfi
 	addPatchLocation(mpd, cfg)
 
 	return mpd, nil
+}
+
+func updateSSRAdaptationSet(as *m.AdaptationSetType, nextID uint32, prevID *uint32,
+	chunkDurSSRMap map[uint32]float64, explicitChunkDurS **float64) {
+	// Add SubNumber to SegmentTemplate
+	if as.SegmentTemplate != nil {
+		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
+	}
+
+	// SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016"
+	var switchingValue string
+	if prevID != nil {
+		switchingValue = strconv.FormatUint(uint64(nextID), 10) + "," + strconv.FormatUint(uint64(*prevID), 10)
+	} else {
+		switchingValue = strconv.FormatUint(uint64(nextID), 10)
+	}
+	sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, switchingValue, "")
+	as.SupplementalProperties = append(as.SupplementalProperties, sp)
+
+	if chunkDur, exists := chunkDurSSRMap[*as.Id]; exists {
+		*explicitChunkDurS = &chunkDur
+	}
+
+	if as.ContentType == "video" {
+		// Add SegmentSequenceProperties to signal Low-Delay
+		as.SegmentSequenceProperties = &m.SegmentSequencePropertiesType{
+			SapType: 1,
+			Cadence: 1,
+		}
+
+		// AdaptationSet@startWithSAP = 1
+		as.StartWithSAP = 1
+
+		// EssentialProperty schemeIdUri="urn:mpeg:dash:ssr:2023"
+		ssrValue := strconv.FormatUint(uint64(nextID), 10)
+		ep := m.NewDescriptor(SsrSchemeIdUri, ssrValue, "")
+		as.EssentialProperties = append(as.EssentialProperties, ep)
+	}
+}
+
+func updateSwitchingAdaptationSet(as *m.AdaptationSetType, prevID uint32) {
+	sp := m.NewDescriptor(AdaptationSetSwitchingSchemeIdUri, strconv.FormatUint(uint64(prevID), 10), "")
+	as.SupplementalProperties = append(as.SupplementalProperties, sp)
 }
 
 // lastPeriodStartTime returns the absolute startTime of the last Period.
@@ -617,31 +723,25 @@ func setOffsetInAdaptationSet(cfg *ResponseConfig, as *m.AdaptationSetType) (ato
 	return atoMS, nil
 }
 
-func adjustAdaptationSetForTimelineTime(se segEntries, as *m.AdaptationSetType, cfg *ResponseConfig) error {
+func adjustAdaptationSetForTimelineTime(se segEntries, as *m.AdaptationSetType) error {
 	if as.SegmentTemplate.SegmentTimeline == nil {
 		as.SegmentTemplate.SegmentTimeline = &m.SegmentTimelineType{}
 	}
 	as.SegmentTemplate.StartNumber = nil
 	as.SegmentTemplate.Duration = nil
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Time$")
-	if cfg.EnableSSR && as.ContentType == "video" {
-		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Time$_$SubNumber$")
-	}
 	as.SegmentTemplate.Timescale = Ptr(se.mediaTimescale)
 	as.SegmentTemplate.SegmentTimeline.S = se.entries
 	return nil
 }
 
-func adjustAdaptationSetForTimelineNr(se segEntries, as *m.AdaptationSetType, cfg *ResponseConfig) error {
+func adjustAdaptationSetForTimelineNr(se segEntries, as *m.AdaptationSetType) error {
 	if as.SegmentTemplate.SegmentTimeline == nil {
 		as.SegmentTemplate.SegmentTimeline = &m.SegmentTimelineType{}
 	}
 	as.SegmentTemplate.StartNumber = nil
 	as.SegmentTemplate.Duration = nil
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
-	if cfg.EnableSSR && as.ContentType == "video" {
-		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
-	}
 	as.SegmentTemplate.Timescale = Ptr(se.mediaTimescale)
 	as.SegmentTemplate.SegmentTimeline.S = se.entries
 
@@ -672,11 +772,6 @@ func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.Ad
 		as.SegmentTemplate.StartNumber = startNr
 	}
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
-	if cfg.EnableSSR && as.ContentType == "video" {
-		as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Number$", "$Number$_$SubNumber$")
-		as.SegmentTemplate.K = calculateK(
-			uint64(*as.SegmentTemplate.Duration), int(*as.SegmentTemplate.Timescale), cfg.ChunkDurS)
-	}
 	return nil
 }
 
@@ -955,4 +1050,84 @@ func contentTypeFromMimeType(mimeType string) string {
 	default:
 		return ""
 	}
+}
+
+// parseSSRAS parses the ssrAS configuration once
+// and returns maps for next and previous adaptation set relationships.
+func parseSSRAS(config string) (nextMap, prevMap map[uint32]uint32, err error) {
+	if config == "" {
+		return nil, nil, nil
+	}
+
+	nextMap = make(map[uint32]uint32)
+	prevMap = make(map[uint32]uint32)
+
+	if hasExtraSpaces(config) {
+		return nil, nil, fmt.Errorf("configuration contains extra spaces: use exact format 'adaptationSetId,ssrValue;...' without spaces")
+	}
+
+	pairs := strings.Split(config, ";")
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ",")
+		if len(parts) != 2 {
+			return nil, nil, fmt.Errorf("invalid format in pair '%s': expected 'adaptationSetId,ssrValue'", pair)
+		}
+		adaptationSetIDStr := strings.TrimSpace(parts[0])
+		ssrValueStr := strings.TrimSpace(parts[1])
+
+		adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid adaptationSetId '%s' in pair '%s': must be a valid unsigned integer", adaptationSetIDStr, pair)
+		}
+
+		ssrValue, err := strconv.ParseUint(ssrValueStr, 10, 32)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid ssrValue '%s' in pair '%s': must be a valid unsigned integer", ssrValueStr, pair)
+		}
+
+		adaptationSetID32 := uint32(adaptationSetID)
+		ssrValue32 := uint32(ssrValue)
+
+		nextMap[adaptationSetID32] = ssrValue32
+		prevMap[ssrValue32] = adaptationSetID32
+	}
+
+	return
+}
+
+// parseChunkDurSSR parses the ChunkDurSSR configuration
+// and returns a map where the key is adaptationSetId and value is chunkDuration in seconds.
+func parseChunkDurSSR(config string) (map[uint32]float64, error) {
+	if config == "" {
+		return nil, nil
+	}
+
+	if hasExtraSpaces(config) {
+		return nil, fmt.Errorf("configuration contains extra spaces: use exact format 'adaptationSetId,chunkDuration;...' without spaces")
+	}
+
+	chunkDurMap := make(map[uint32]float64)
+	pairs := strings.Split(config, ";")
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ",")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid format in pair '%s': expected 'adaptationSetId,chunkDuration'", pair)
+		}
+		adaptationSetIDStr := strings.TrimSpace(parts[0])
+		chunkDurationStr := strings.TrimSpace(parts[1])
+
+		adaptationSetID, err := strconv.ParseUint(adaptationSetIDStr, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid adaptationSetId '%s' in pair '%s': must be a valid unsigned integer", adaptationSetIDStr, pair)
+		}
+
+		chunkDuration, err := strconv.ParseFloat(chunkDurationStr, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid chunkDuration '%s' in pair '%s': must be a valid number", chunkDurationStr, pair)
+		}
+
+		chunkDurMap[uint32(adaptationSetID)] = chunkDuration
+	}
+
+	return chunkDurMap, nil
 }

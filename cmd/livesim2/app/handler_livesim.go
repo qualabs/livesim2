@@ -316,10 +316,7 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 			return code, nil
 		}
 	}
-	if cfg.AvailabilityTimeCompleteFlag {
-		return 0, writeLiveSegment(log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, tt, isLast)
-	}
-	if cfg.EnableSSR {
+	if cfg.SSRFlag {
 		// Sub segment part (SSR/L3D) low-delay mode should return each subSegment as a separated response
 		newSegmentPart, subSegmentPart, err := calcSubSegmentPart(segmentPart)
 		// Check if there is a sub-segment part
@@ -332,8 +329,15 @@ func writeSegment(ctx context.Context, w http.ResponseWriter, log *slog.Logger, 
 
 		return 0, writeSubSegment(ctx, log, w, cfg, drmCfg, vodFS, a, newSegmentPart, subSegmentPart, nowMS, isLast)
 	}
-	// Chunked low-latency mode
-	return 0, writeChunkedSegment(ctx, log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, isLast)
+	if cfg.AvailabilityTimeCompleteFlag {
+		return 0, writeLiveSegment(log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, tt, isLast)
+	}
+	// Only use chunked mode if chunk duration is explicitly configured
+	if cfg.ChunkDurS != nil {
+		return 0, writeChunkedSegment(ctx, log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, isLast)
+	}
+	// Default to non-chunked
+	return 0, writeLiveSegment(log, w, cfg, drmCfg, vodFS, a, segmentPart, nowMS, tt, isLast)
 }
 
 var subSegmentRegex = regexp.MustCompile(`^(.*)_(\d+)$`)
@@ -409,7 +413,11 @@ func calcStatusCode(cfg *ResponseConfig, a *asset, segmentPart string, nowMS int
 
 func findLastSegNr(cfg *ResponseConfig, a *asset, nowMS int, rep *RepData) int {
 	wTimes := calcWrapTimes(a, cfg, nowMS, mpd.Duration(60*time.Second))
-	timeLineEntries := a.generateTimelineEntries(rep.ID, wTimes, 0, nil)
+	timeLineEntries, err := a.generateTimelineEntries(rep.ID, wTimes, 0, nil)
+	if err != nil {
+		// This should not happen with nil chunk duration, but handle gracefully
+		return -1
+	}
 	return timeLineEntries.lastNr()
 }
 

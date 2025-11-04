@@ -33,6 +33,7 @@ func genLiveSegment(log *slog.Logger, vodFS fs.FS, a *asset, cfg *ResponseConfig
 
 	outSeg, err := createOutSeg(vodFS, a, cfg, segmentPart, nowMS)
 	if err != nil {
+		log.Error("createOutSeg error", "error", err, "asset", a.AssetPath, "segment", segmentPart)
 		return so, fmt.Errorf("createOutSeg: %w", err)
 	}
 	if isImage(segmentPart) {
@@ -637,7 +638,20 @@ func findRefSegMeta(a *asset, cfg *ResponseConfig, segmentPart string, nowMS int
 		}
 	case timeLineTime:
 		time := int(segID)
-		refMeta, err = findRefSegMetaFromTime(a, rep, uint64(time), cfg, nowMS)
+
+		// Apply editListOffset mapping for audio segments
+		// The MPD shows adjusted timeline where segment 0 has shortened duration
+		// We need to map the adjusted time back to the original timeline
+		requestTime := uint64(time)
+		if rep.EditListOffset > 0 && rep.ContentType == "audio" {
+			// For times after segment 0, we need to add back the editListOffset
+			// because segment 0's duration was shortened by editListOffset
+			if requestTime > 0 {
+				requestTime = requestTime + uint64(rep.EditListOffset)
+			}
+		}
+
+		refMeta, err = findRefSegMetaFromTime(a, rep, requestTime, cfg, nowMS)
 		if err != nil {
 			return refMeta, fmt.Errorf("findSegMetaFromNr from reference: %w", err)
 		}
@@ -667,12 +681,15 @@ func prepareChunks(log *slog.Logger, vodFS fs.FS, a *asset, cfg *ResponseConfig,
 
 	// Calculate chunk duration in media timescale units
 	var chunkDur int
-	if cfg.ChunkDurS != nil && *cfg.ChunkDurS > 0 {
+	if rep.ChunkDurSSRS != nil && *rep.ChunkDurSSRS > 0 {
+		// Use low delay chunk duration from adaptation set configuration
+		chunkDur = int(*rep.ChunkDurSSRS * float64(rep.MediaTimescale))
+	} else if cfg.ChunkDurS != nil && *cfg.ChunkDurS > 0 {
 		// Use explicit chunk duration from URL parameter
 		chunkDur = int(*cfg.ChunkDurS * float64(rep.MediaTimescale))
 	} else {
-		// Fallback: fragment/chunk duration is segment_duration-availabilityTimeOffset
-		chunkDur = (a.SegmentDurMS - int(cfg.AvailabilityTimeOffsetS*1000)) * int(rep.MediaTimescale) / 1000
+		// No chunk duration configured - chunking should not be performed
+		return so, nil, fmt.Errorf("chunking requested but no chunk duration configured (chunkDurS or chunkDurSSR)")
 	}
 	chunks, err := chunkSegment(rep.initSeg, seg, so.meta, chunkDur, chunkIndex)
 	if err != nil {
@@ -706,7 +723,7 @@ func setHeaders(w http.ResponseWriter, so segOut, segmentPart string) error {
 
 // writeChunkedSegment splits a segment into chunks and send them as they become available timewise.
 //
-// nowMS servers as reference for the current time and can be set to any value. Media time will
+// nowMS serves as reference for the current time and can be set to any value. Media time will
 // be incremented with respect to nowMS.
 func writeChunkedSegment(ctx context.Context, log *slog.Logger, w http.ResponseWriter, cfg *ResponseConfig, drmCfg *drm.DrmConfig,
 	vodFS fs.FS, a *asset, segmentPart string, nowMS int, isLast bool) error {

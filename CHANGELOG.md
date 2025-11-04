@@ -9,14 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- VVC test content (testpic_2s_vvc)
+
+### Fixed
+
+- Anchored regex for matching representation
+
+## [1.8.0] - 2025-09-11
+
+### Added
+
 - HEVC encryption support
-- AC-4 audio support including encryption
-- AC-3 and EC-3 encryption support
+- AC-4 audio support (including full encryption)
+- MPEG-H audio support (including full encryption)
+- AC-3 and EC-3 full encryption support
+- Support for CMAF-compliant audio edit list
+- Documented the CMAF edit list support for both audio and video
 
 ### Changed
 
-- Minimal Go version is now 1.23
+- Minimal Go version increased to 1.23
 - Updated dash-mpd to v0.13.0 (Full DASH Ed. 6 support)
+- Updated mp4ff to v0.50.0 (more codecs support)
 
 ### Fixed
 
@@ -333,7 +347,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - features and URLs listed at livesim2 root page
 - configurable generated stpp subtitles with timing info
 
-[Unreleased]: https://github.com/Dash-Industry-Forum/livesim2/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/Dash-Industry-Forum/livesim2/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/Dash-Industry-Forum/livesim2/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/Dash-Industry-Forum/livesim2/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/Dash-Industry-Forum/livesim2/compare/v1.5.2...v1.6.0
 [1.5.2]: https://github.com/Dash-Industry-Forum/livesim2/compare/v1.5.1...v1.5.2
