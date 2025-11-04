@@ -774,7 +774,7 @@ func adjustAdaptationSetForSegmentNumber(cfg *ResponseConfig, a *asset, as *m.Ad
 	as.SegmentTemplate.Media = strings.ReplaceAll(as.SegmentTemplate.Media, "$Time$", "$Number$")
 
 	if cfg.SSRFlag && explicitChunkDurS != nil {
-		k, err := calculateK(uint64(*as.SegmentTemplate.Duration), int(*as.SegmentTemplate.Timescale), explicitChunkDurS)
+k, err := calculateK(uint64(*as.SegmentTemplate.Duration), int(as.SegmentTemplate.GetTimescale()), explicitChunkDurS)
 		if err != nil {
 			return err
 		}
